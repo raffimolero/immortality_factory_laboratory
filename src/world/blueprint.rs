@@ -16,6 +16,7 @@ impl PastedWorld {
         StructureId {
             world_id: self.host_id,
             index: structure.index + self.base_index,
+            ..structure
         }
     }
 }
@@ -43,21 +44,33 @@ impl World {
         }
     }
 
+    /// for hardcore users
+    pub fn stack_iter(
+        &mut self,
+        blueprint: &Self,
+        x: i32,
+        y: i32,
+        dx: i32,
+        dy: i32,
+        count: usize,
+    ) -> impl Iterator<Item = PastedWorld> {
+        let delta = Offset { x: dx, y: dy };
+        (0..count).scan(Position { x, y }, move |pos, _| {
+            let building = self.paste(blueprint, pos.x, pos.y);
+            *pos = *pos + delta;
+            Some(building)
+        })
+    }
+
     pub fn stack(
         &mut self,
         blueprint: &Self,
-        mut x: i32,
-        mut y: i32,
+        x: i32,
+        y: i32,
         dx: i32,
         dy: i32,
         count: usize,
     ) -> Vec<PastedWorld> {
-        let mut buildings = Vec::with_capacity(count);
-        for _ in 0..count {
-            buildings.push(self.paste(blueprint, x, y));
-            x += dx;
-            y += dy;
-        }
-        buildings
+        self.stack_iter(blueprint, x, y, dx, dy, count).collect()
     }
 }

@@ -1,8 +1,12 @@
 use crate::{item::Item, world::Offset};
-use std::fmt::{self, Write};
+use std::{
+    fmt::{self, Write},
+    mem::discriminant,
+};
 
 use Structure::*;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConnectorData {
     pub inputs: &'static [Offset],
     pub outputs: &'static [Offset],
@@ -29,51 +33,8 @@ pub enum Structure {
 }
 
 impl Structure {
-    pub fn size(&self) -> (u8, u8) {
-        match self {
-            AirPump => (2, 2),
-            Refinery(_) => (6, 2),
-            Disharmonizer => (4, 4),
-            Unifier => (4, 5),
-            SubdimensionalMarket => (4, 5),
-            Splitter => (1, 3),
-            Merger => (1, 3),
-            StorageVault(_) => (5, 2),
-            AbysalDoor => (4, 1),
-            SingleStorage => (1, 1),
-            Laboratory => (5, 2),
-            RitualInfuser => (5, 5),
-            BigMerger => (1, 6),
-            BigSplitter => (1, 6),
-        }
-    }
-
-    /// i have no idea what this number means
-    fn object_number(&self) -> u8 {
-        match self {
-            AirPump => 3,
-            Refinery(_) => 5,
-            Disharmonizer => 2,
-            Unifier => 1,
-            SubdimensionalMarket => 6,
-            Splitter => 23,
-            Merger => 26,
-            StorageVault(_) => 0,
-            AbysalDoor => 18,
-            SingleStorage => 19,
-            Laboratory => 20,
-            RitualInfuser => 12,
-            BigMerger => 4,
-            BigSplitter => 9,
-        }
-    }
-
-    pub fn storage_capacity(&self) -> usize {
-        match self {
-            Refinery(x) => x.len(),
-            StorageVault(x) => x.len(),
-            _ => 0,
-        }
+    pub fn kind(&self) -> StructureKind {
+        self.into()
     }
 
     pub fn get_storage(&self) -> &[Item] {
@@ -81,96 +42,6 @@ impl Structure {
             Refinery(x) => &**x,
             StorageVault(x) => &**x,
             _ => &[],
-        }
-    }
-
-    pub fn connectors(&self) -> ConnectorData {
-        match self {
-            AirPump => ConnectorData {
-                inputs: &[],
-                outputs: &[Offset { x: 1, y: 1 }],
-            },
-            Refinery(_) => ConnectorData {
-                inputs: &[Offset { x: 0, y: 0 }],
-                outputs: &[Offset { x: 5, y: 0 }],
-            },
-            Disharmonizer => ConnectorData {
-                inputs: &[Offset { x: 0, y: 3 }],
-                outputs: &[
-                    Offset { x: 3, y: 0 },
-                    Offset { x: 3, y: 1 },
-                    Offset { x: 3, y: 2 },
-                    Offset { x: 3, y: 3 },
-                ],
-            },
-            Unifier => ConnectorData {
-                inputs: &[
-                    Offset { x: 0, y: 4 },
-                    Offset { x: 1, y: 4 },
-                    Offset { x: 2, y: 4 },
-                ],
-                outputs: &[Offset { x: 1, y: 0 }],
-            },
-            SubdimensionalMarket => ConnectorData {
-                inputs: &[Offset { x: 3, y: 4 }],
-                outputs: &[
-                    Offset { x: 3, y: 0 },
-                    Offset { x: 3, y: 1 },
-                    Offset { x: 3, y: 2 },
-                ],
-            },
-            Splitter => ConnectorData {
-                inputs: &[Offset { x: 0, y: 1 }],
-                outputs: &[Offset { x: 0, y: 0 }, Offset { x: 0, y: 2 }],
-            },
-            Merger => ConnectorData {
-                inputs: &[Offset { x: 0, y: 0 }, Offset { x: 0, y: 2 }],
-                outputs: &[Offset { x: 0, y: 1 }],
-            },
-            StorageVault(_) => ConnectorData {
-                inputs: &[Offset { x: 0, y: 1 }],
-                outputs: &[Offset { x: 4, y: 1 }],
-            },
-            AbysalDoor => ConnectorData {
-                inputs: &[Offset { x: 0, y: 0 }],
-                outputs: &[],
-            },
-            SingleStorage => ConnectorData {
-                inputs: &[],
-                outputs: &[ /*-1, -1*/ ],
-            },
-            Laboratory => ConnectorData {
-                inputs: &[Offset { x: 0, y: 1 }],
-                outputs: &[],
-            },
-            RitualInfuser => ConnectorData {
-                inputs: &[
-                    Offset { x: 0, y: 1 },
-                    Offset { x: 2, y: 0 },
-                    Offset { x: 4, y: 1 },
-                ],
-                outputs: &[ /*-1, -1*/ ],
-            },
-            BigMerger => ConnectorData {
-                inputs: &[
-                    Offset { x: 0, y: 0 },
-                    Offset { x: 0, y: 1 },
-                    Offset { x: 0, y: 2 },
-                    Offset { x: 0, y: 3 },
-                    Offset { x: 0, y: 4 },
-                ],
-                outputs: &[Offset { x: 0, y: 5 }],
-            },
-            BigSplitter => ConnectorData {
-                inputs: &[Offset { x: 0, y: 5 }],
-                outputs: &[
-                    Offset { x: 0, y: 0 },
-                    Offset { x: 0, y: 1 },
-                    Offset { x: 0, y: 2 },
-                    Offset { x: 0, y: 3 },
-                    Offset { x: 0, y: 4 },
-                ],
-            },
         }
     }
 
@@ -187,7 +58,7 @@ impl Structure {
     pub fn export(&self, f: &mut impl Write, id: usize, raw_x: i32, raw_y: i32) -> fmt::Result {
         let world_y = raw_y * 22;
         let world_x = raw_x * 22;
-        let obj_num = self.object_number();
+        let obj_num = self.kind().object_number();
 
         self.export_struct(f, id)?;
         writeln!(f, "{id}-y=\"{world_y}.000000\"")?;
@@ -257,6 +128,184 @@ impl Structure {
                 f,
                 r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:1.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:2.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:3.0,+column+:0.0,+row+:3.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:4.0,+column+:0.0,+row+:4.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}}],+type+:13,+machine_type+:{{+name+:+Big Splitter+,+type+:13,+description+:+Splits Outputs. Lowest always first.+,+sprite+:22,+machine_cost+:{{+cost_type_list+:[5,5,5,5,5,5,5],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:true,+machine_speed+:1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:5.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}}]}}""#
             ),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum StructureKind {
+    AirPump,
+    Refinery,
+    Disharmonizer,
+    Unifier,
+    SubdimensionalMarket,
+    Splitter,
+    Merger,
+    StorageVault,
+    AbysalDoor,
+    SingleStorage,
+    Laboratory,
+    RitualInfuser,
+    BigMerger,
+    BigSplitter,
+}
+
+impl StructureKind {
+    pub fn size(&self) -> (u8, u8) {
+        match self {
+            Self::AirPump => (2, 2),
+            Self::Refinery => (6, 2),
+            Self::Disharmonizer => (4, 4),
+            Self::Unifier => (4, 5),
+            Self::SubdimensionalMarket => (4, 5),
+            Self::Splitter => (1, 3),
+            Self::Merger => (1, 3),
+            Self::StorageVault => (5, 2),
+            Self::AbysalDoor => (4, 1),
+            Self::SingleStorage => (1, 1),
+            Self::Laboratory => (5, 2),
+            Self::RitualInfuser => (5, 5),
+            Self::BigMerger => (1, 6),
+            Self::BigSplitter => (1, 6),
+        }
+    }
+
+    /// i have no idea what this number means
+    fn object_number(&self) -> u8 {
+        match self {
+            Self::AirPump => 3,
+            Self::Refinery => 5,
+            Self::Disharmonizer => 2,
+            Self::Unifier => 1,
+            Self::SubdimensionalMarket => 6,
+            Self::Splitter => 23,
+            Self::Merger => 26,
+            Self::StorageVault => 0,
+            Self::AbysalDoor => 18,
+            Self::SingleStorage => 19,
+            Self::Laboratory => 20,
+            Self::RitualInfuser => 12,
+            Self::BigMerger => 4,
+            Self::BigSplitter => 9,
+        }
+    }
+
+    pub fn storage_capacity(&self) -> usize {
+        match self {
+            Self::Refinery => 12,
+            Self::StorageVault => 16,
+            _ => 0,
+        }
+    }
+
+    pub fn connectors(&self) -> ConnectorData {
+        match self {
+            Self::AirPump => ConnectorData {
+                inputs: &[],
+                outputs: &[Offset { x: 1, y: 1 }],
+            },
+            Self::Refinery => ConnectorData {
+                inputs: &[Offset { x: 0, y: 0 }],
+                outputs: &[Offset { x: 5, y: 0 }],
+            },
+            Self::Disharmonizer => ConnectorData {
+                inputs: &[Offset { x: 0, y: 3 }],
+                outputs: &[
+                    Offset { x: 3, y: 0 },
+                    Offset { x: 3, y: 1 },
+                    Offset { x: 3, y: 2 },
+                    Offset { x: 3, y: 3 },
+                ],
+            },
+            Self::Unifier => ConnectorData {
+                inputs: &[
+                    Offset { x: 0, y: 4 },
+                    Offset { x: 1, y: 4 },
+                    Offset { x: 2, y: 4 },
+                ],
+                outputs: &[Offset { x: 1, y: 0 }],
+            },
+            Self::SubdimensionalMarket => ConnectorData {
+                inputs: &[Offset { x: 3, y: 4 }],
+                outputs: &[
+                    Offset { x: 3, y: 0 },
+                    Offset { x: 3, y: 1 },
+                    Offset { x: 3, y: 2 },
+                ],
+            },
+            Self::Splitter => ConnectorData {
+                inputs: &[Offset { x: 0, y: 1 }],
+                outputs: &[Offset { x: 0, y: 0 }, Offset { x: 0, y: 2 }],
+            },
+            Self::Merger => ConnectorData {
+                inputs: &[Offset { x: 0, y: 0 }, Offset { x: 0, y: 2 }],
+                outputs: &[Offset { x: 0, y: 1 }],
+            },
+            Self::StorageVault => ConnectorData {
+                inputs: &[Offset { x: 0, y: 1 }],
+                outputs: &[Offset { x: 4, y: 1 }],
+            },
+            Self::AbysalDoor => ConnectorData {
+                inputs: &[Offset { x: 0, y: 0 }],
+                outputs: &[],
+            },
+            Self::SingleStorage => ConnectorData {
+                inputs: &[],
+                outputs: &[ /*-1, -1*/ ],
+            },
+            Self::Laboratory => ConnectorData {
+                inputs: &[Offset { x: 0, y: 1 }],
+                outputs: &[],
+            },
+            Self::RitualInfuser => ConnectorData {
+                inputs: &[
+                    Offset { x: 0, y: 1 },
+                    Offset { x: 2, y: 0 },
+                    Offset { x: 4, y: 1 },
+                ],
+                outputs: &[ /*-1, -1*/ ],
+            },
+            Self::BigMerger => ConnectorData {
+                inputs: &[
+                    Offset { x: 0, y: 0 },
+                    Offset { x: 0, y: 1 },
+                    Offset { x: 0, y: 2 },
+                    Offset { x: 0, y: 3 },
+                    Offset { x: 0, y: 4 },
+                ],
+                outputs: &[Offset { x: 0, y: 5 }],
+            },
+            Self::BigSplitter => ConnectorData {
+                inputs: &[Offset { x: 0, y: 5 }],
+                outputs: &[
+                    Offset { x: 0, y: 0 },
+                    Offset { x: 0, y: 1 },
+                    Offset { x: 0, y: 2 },
+                    Offset { x: 0, y: 3 },
+                    Offset { x: 0, y: 4 },
+                ],
+            },
+        }
+    }
+}
+
+impl From<&Structure> for StructureKind {
+    fn from(value: &Structure) -> Self {
+        match value {
+            AirPump => Self::AirPump,
+            Refinery(_) => Self::Refinery,
+            Disharmonizer => Self::Disharmonizer,
+            Unifier => Self::Unifier,
+            SubdimensionalMarket => Self::SubdimensionalMarket,
+            Splitter => Self::Splitter,
+            Merger => Self::Merger,
+            StorageVault(_) => Self::StorageVault,
+            AbysalDoor => Self::AbysalDoor,
+            SingleStorage => Self::SingleStorage,
+            Laboratory => Self::Laboratory,
+            RitualInfuser => Self::RitualInfuser,
+            BigMerger => Self::BigMerger,
+            BigSplitter => Self::BigSplitter,
         }
     }
 }

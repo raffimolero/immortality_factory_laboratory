@@ -2,7 +2,7 @@ use std::fs;
 
 use item::Item::{self, *};
 use structure::Structure::{self, *};
-use world::World;
+use world::{StructureId, World};
 
 mod item;
 mod structure;
@@ -22,15 +22,18 @@ fn main() {
     let mut mana_refinery = World::new();
     let pump = mana_refinery.place_structure(AirPump, 0, 0);
     let refinery = mana_refinery.place_structure(Refinery(Box::new([Empty; 12])), 2, 0);
-    mana_refinery.connect(pump, 0, refinery, 0);
+    mana_refinery.connect(pump.output(0), refinery.input(0));
 
     let mut world = World::new();
     world.place_structure(Laboratory, 0, -2);
 
     let stack = world.stack(&mana_refinery, 0, 0, 0, 2, 4);
-    let merge = world.place_structure(BigMerger, 8, 0);
+    let merge = world.place_structure(BigMerger, 8, 2);
     for (i, pasted_world) in stack.into_iter().enumerate() {
-        world.connect(pasted_world.get_in_host(refinery), 0, merge, i);
+        world.connect(
+            pasted_world.get_in_host(refinery).output(0),
+            merge.input(i + 1),
+        );
     }
 
     let mut out = String::new();

@@ -2,11 +2,12 @@ mod blueprint;
 
 use std::{
     fmt::{self, Write},
+    mem::Discriminant,
     ops::Add,
     sync::Mutex,
 };
 
-use crate::structure::Structure;
+use crate::structure::{Structure, StructureKind};
 
 static WORLD_COUNT: Mutex<usize> = Mutex::new(0);
 fn new_world_id() -> WorldId {
@@ -120,10 +121,48 @@ pub struct PositionedStructure {
     pub structure: Structure,
 }
 
+/// technically only the index is necessary. the rest are for debug assertions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct StructureId {
     world_id: WorldId,
     index: usize,
+    kind: StructureKind,
+}
+
+impl StructureId {
+    pub fn input(self, port: usize) -> StructureInput {
+        let structure = &self.kind;
+        let offset = *structure.connectors().inputs.get(port).unwrap_or_else(|| {
+            panic!("Tried to get {structure:?} input port #{port}, does not exist.")
+        });
+        StructureInput {
+            structure_id: self,
+            offset,
+        }
+    }
+
+    pub fn output(self, port: usize) -> StructureOutput {
+        let structure = &self.kind;
+        let offset = *structure.connectors().outputs.get(port).unwrap_or_else(|| {
+            panic!("Tried to get {structure:?} output port #{port}, does not exist.")
+        });
+        StructureOutput {
+            structure_id: self,
+            offset,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct StructureInput {
+    structure_id: StructureId,
+    offset: Offset,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct StructureOutput {
+    structure_id: StructureId,
+    offset: Offset,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -147,6 +186,7 @@ impl World {
         let id = StructureId {
             world_id: self.world_id,
             index: self.structures.len(),
+            kind: structure.kind(),
         };
         self.structures.push(PositionedStructure {
             pos: Position { x, y },
@@ -167,42 +207,13 @@ impl World {
     }
 
     /// panics if you mess anything up lmao
-    pub fn connect(
-        &mut self,
-        source: StructureId,
-        source_out_port: usize,
-        destination: StructureId,
-        destination_in_port: usize,
-    ) {
-        let src = self.get_structure(source);
-        let src_data = &src.structure;
-        let src_off = src_data
-            .connectors()
-            .outputs
-            .get(source_out_port)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Source port does not exist.\n\
-                    Tried to get {source:?} ({src_data:?}) output port #{source_out_port}"
-                )
-            });
-
-        let dst = self.get_structure(destination);
-        let dst_data = &dst.structure;
-        let dst_off = dst_data
-            .connectors()
-            .inputs
-            .get(destination_in_port)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Destination port does not exist.\n\
-                    Tried to get {destination:?} ({dst_data:?}) output port #{destination_in_port}"
-                )
-            });
+    pub fn connect(&mut self, source: StructureOutput, destination: StructureInput) {
+        let src = self.get_structure(source.structure_id);
+        let dst = self.get_structure(destination.structure_id);
 
         let connection = DirectConnection {
-            src: src.pos + *src_off,
-            dst: dst.pos + *dst_off,
+            src: src.pos + source.offset,
+            dst: dst.pos + destination.offset,
         };
         self.connections.push(connection);
     }
