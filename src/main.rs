@@ -13,7 +13,11 @@ fn storage() -> World {
     let mut vaults = vec![];
     for (i, item) in Item::ITEMS.iter().copied().enumerate() {
         vaults.push(row.place_structure_with_data(
-            StructureWithData::StorageVault(Box::new([item; 16])),
+            StructureWithData::StorageVault {
+                input: item,
+                storage: [item; 16],
+                output: item,
+            },
             (i * 6) as i32,
             0,
         ));

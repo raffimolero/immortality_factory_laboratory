@@ -52,6 +52,14 @@ pub struct Offset {
     pub y: i32,
 }
 
+impl Offset {
+    pub const NULL: Self = Self { x: -1, y: -1 };
+
+    pub fn non_null(&self) -> bool {
+        *self != Self::NULL
+    }
+}
+
 impl Add<Offset> for Offset {
     type Output = Self;
 
@@ -145,9 +153,15 @@ pub struct StructureId {
 impl StructureId {
     pub fn input(self, port: usize) -> StructureInput {
         let structure = &self.kind;
-        let offset = *structure.connectors().inputs.get(port).unwrap_or_else(|| {
-            panic!("Tried to get {structure:?} input port #{port}, does not exist.")
-        });
+        let offset = structure
+            .connectors()
+            .inputs
+            .get(port)
+            .copied()
+            .filter(Offset::non_null)
+            .unwrap_or_else(|| {
+                panic!("Tried to get {structure:?} input port #{port}, does not exist.")
+            });
         StructureInput {
             structure_id: self,
             offset,
@@ -156,9 +170,15 @@ impl StructureId {
 
     pub fn output(self, port: usize) -> StructureOutput {
         let structure = &self.kind;
-        let offset = *structure.connectors().outputs.get(port).unwrap_or_else(|| {
-            panic!("Tried to get {structure:?} output port #{port}, does not exist.")
-        });
+        let offset = structure
+            .connectors()
+            .outputs
+            .get(port)
+            .copied()
+            .filter(Offset::non_null)
+            .unwrap_or_else(|| {
+                panic!("Tried to get {structure:?} output port #{port}, does not exist.")
+            });
         StructureOutput {
             structure_id: self,
             offset,
