@@ -9,8 +9,10 @@ use std::{
 
 use crate::structure::{StructureKind, StructureWithData};
 
-static WORLD_COUNT: Mutex<usize> = Mutex::new(0);
+type ID = u32;
+static WORLD_COUNT: Mutex<ID> = Mutex::new(0);
 fn new_world_id() -> WorldId {
+    // could be a UUID instead of an incrementing count
     let mut guard = WORLD_COUNT
         .lock()
         .expect("Failed to lock global WORLD_COUNT");
@@ -21,7 +23,7 @@ fn new_world_id() -> WorldId {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct WorldId {
-    id: usize,
+    id: ID,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
