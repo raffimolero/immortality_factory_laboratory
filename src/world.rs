@@ -1,9 +1,27 @@
+mod blueprint;
+
 use std::{
     fmt::{self, Write},
     ops::Add,
+    sync::Mutex,
 };
 
 use crate::structure::Structure;
+
+static WORLD_COUNT: Mutex<usize> = Mutex::new(0);
+fn new_world_id() -> WorldId {
+    let mut guard = WORLD_COUNT
+        .lock()
+        .expect("Failed to lock global WORLD_COUNT");
+    let id = *guard;
+    *guard += 1;
+    WorldId { id }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct WorldId {
+    id: usize,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Position {
@@ -42,6 +60,28 @@ impl Add<Offset> for Position {
     }
 }
 
+impl Add<Offset> for PositionedStructure {
+    type Output = Self;
+
+    fn add(self, rhs: Offset) -> Self::Output {
+        Self {
+            pos: self.pos + rhs,
+            ..self
+        }
+    }
+}
+
+impl Add<Offset> for DirectConnection {
+    type Output = Self;
+
+    fn add(self, rhs: Offset) -> Self::Output {
+        Self {
+            src: self.src + rhs,
+            dst: self.dst + rhs,
+        }
+    }
+}
+
 pub struct ConnectorOut {
     pub structure_id: StructureId,
     port: usize,
@@ -75,33 +115,55 @@ impl DirectConnection {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct PositionedStructure {
-    pos: Position,
-    structure: Structure,
+pub struct PositionedStructure {
+    pub pos: Position,
+    pub structure: Structure,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StructureId(usize);
+pub struct StructureId {
+    world_id: WorldId,
+    index: usize,
+}
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct World {
+    world_id: WorldId,
     structures: Vec<PositionedStructure>,
     connections: Vec<DirectConnection>,
 }
 
 impl World {
     pub fn new() -> Self {
-        Self::default()
+        Self {
+            world_id: new_world_id(),
+            structures: vec![],
+            connections: vec![],
+        }
     }
 
     /// returns the index of the structure placed
     pub fn place_structure(&mut self, structure: Structure, x: i32, y: i32) -> StructureId {
-        let id = StructureId(self.structures.len());
+        let id = StructureId {
+            world_id: self.world_id,
+            index: self.structures.len(),
+        };
         self.structures.push(PositionedStructure {
             pos: Position { x, y },
             structure,
         });
         id
+    }
+
+    pub fn get_structure(&self, structure: StructureId) -> &PositionedStructure {
+        assert_eq!(structure.world_id, self.world_id, "World IDs must match.");
+        self.structures.get(structure.index).unwrap_or_else(|| {
+            panic!(
+                "Source structure does not exist.\n\
+                Tried to get {structure:?} but only {} structures exist.",
+                self.structures.len()
+            )
+        })
     }
 
     /// panics if you mess anything up lmao
@@ -112,13 +174,7 @@ impl World {
         destination: StructureId,
         destination_in_port: usize,
     ) {
-        let src = &self.structures.get(source.0).unwrap_or_else(|| {
-            panic!(
-                "Source structure does not exist.\n\
-                Tried to get {source:?} but only {} structures exist.",
-                self.structures.len()
-            )
-        });
+        let src = self.get_structure(source);
         let src_data = &src.structure;
         let src_off = src_data
             .connectors()
@@ -130,12 +186,8 @@ impl World {
                     Tried to get {source:?} ({src_data:?}) output port #{source_out_port}"
                 )
             });
-        let dst = &self.structures.get(destination.0).expect(&format!(
-            "Destination structure does not exist.\n\
-            Tried to get {destination:?} but only {} structures exist.",
-            self.structures.len()
-        ));
 
+        let dst = self.get_structure(destination);
         let dst_data = &dst.structure;
         let dst_off = dst_data
             .connectors()
@@ -324,9 +376,9 @@ impl World {
 -type="-1.000000"
 -value="-1.000000"
 [Final]
-0-value="48.000000"
-1-value="50.000000"
-2-value="193.000000"
+0-value="0.000000"
+1-value="0.000000"
+2-value="0.000000"
 [Game]
 -finished="1.000000""#
         )
