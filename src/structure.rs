@@ -4,7 +4,7 @@ use std::{
     mem::discriminant,
 };
 
-use Structure::*;
+use StructureWithData::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConnectorData {
@@ -15,7 +15,7 @@ pub struct ConnectorData {
 // TODO: individual content slots
 // TODO: collision detection
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Structure {
+pub enum StructureWithData {
     AirPump,
     Refinery(Box<[Item; 12]>),
     Disharmonizer,
@@ -32,7 +32,7 @@ pub enum Structure {
     BigSplitter,
 }
 
-impl Structure {
+impl StructureWithData {
     pub fn kind(&self) -> StructureKind {
         self.into()
     }
@@ -289,8 +289,8 @@ impl StructureKind {
     }
 }
 
-impl From<&Structure> for StructureKind {
-    fn from(value: &Structure) -> Self {
+impl From<&StructureWithData> for StructureKind {
+    fn from(value: &StructureWithData) -> Self {
         match value {
             AirPump => Self::AirPump,
             Refinery(_) => Self::Refinery,
@@ -306,6 +306,27 @@ impl From<&Structure> for StructureKind {
             RitualInfuser => Self::RitualInfuser,
             BigMerger => Self::BigMerger,
             BigSplitter => Self::BigSplitter,
+        }
+    }
+}
+
+impl From<StructureKind> for StructureWithData {
+    fn from(value: StructureKind) -> Self {
+        match value {
+            StructureKind::AirPump => AirPump,
+            StructureKind::Refinery => Refinery(Box::default()),
+            StructureKind::Disharmonizer => Disharmonizer,
+            StructureKind::Unifier => Unifier,
+            StructureKind::SubdimensionalMarket => SubdimensionalMarket,
+            StructureKind::Splitter => Splitter,
+            StructureKind::Merger => Merger,
+            StructureKind::StorageVault => StorageVault(Box::default()),
+            StructureKind::AbysalDoor => AbysalDoor,
+            StructureKind::SingleStorage => SingleStorage,
+            StructureKind::Laboratory => Laboratory,
+            StructureKind::RitualInfuser => RitualInfuser,
+            StructureKind::BigMerger => BigMerger,
+            StructureKind::BigSplitter => BigSplitter,
         }
     }
 }

@@ -7,7 +7,7 @@ use std::{
     sync::Mutex,
 };
 
-use crate::structure::{Structure, StructureKind};
+use crate::structure::{StructureKind, StructureWithData};
 
 static WORLD_COUNT: Mutex<usize> = Mutex::new(0);
 fn new_world_id() -> WorldId {
@@ -118,7 +118,7 @@ impl DirectConnection {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PositionedStructure {
     pub pos: Position,
-    pub structure: Structure,
+    pub structure: StructureWithData,
 }
 
 /// technically only the index is necessary. the rest are for debug assertions.
@@ -182,7 +182,12 @@ impl World {
     }
 
     /// returns the index of the structure placed
-    pub fn place_structure(&mut self, structure: Structure, x: i32, y: i32) -> StructureId {
+    pub fn place_structure_with_data(
+        &mut self,
+        structure: StructureWithData,
+        x: i32,
+        y: i32,
+    ) -> StructureId {
         let id = StructureId {
             world_id: self.world_id,
             index: self.structures.len(),
@@ -193,6 +198,11 @@ impl World {
             structure,
         });
         id
+    }
+
+    /// returns the index of the structure placed
+    pub fn place_structure(&mut self, structure: StructureKind, x: i32, y: i32) -> StructureId {
+        self.place_structure_with_data(structure.into(), x, y)
     }
 
     pub fn get_structure(&self, structure: StructureId) -> &PositionedStructure {

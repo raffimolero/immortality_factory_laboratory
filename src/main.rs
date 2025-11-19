@@ -1,7 +1,7 @@
 use std::fs;
 
 use item::Item::{self, *};
-use structure::Structure::{self, *};
+use structure::{StructureKind::*, StructureWithData};
 use world::{StructureId, World};
 
 mod item;
@@ -11,7 +11,11 @@ mod world;
 fn storage() -> World {
     let mut row = World::new();
     for (i, item) in Item::ITEMS.iter().copied().enumerate() {
-        row.place_structure(StorageVault(Box::new([item; 16])), (i * 6) as i32, 0);
+        row.place_structure_with_data(
+            StructureWithData::StorageVault(Box::new([item; 16])),
+            (i * 6) as i32,
+            0,
+        );
     }
     let mut storage = World::new();
     storage.stack(&row, 0, 0, 0, 2, 16);
@@ -21,7 +25,7 @@ fn storage() -> World {
 fn main() {
     let mut mana_refinery = World::new();
     let pump = mana_refinery.place_structure(AirPump, 0, 0);
-    let refinery = mana_refinery.place_structure(Refinery(Box::new([Empty; 12])), 2, 0);
+    let refinery = mana_refinery.place_structure(Refinery, 2, 0);
     mana_refinery.connect(pump.output(0), refinery.input(0));
 
     let mut world = World::new();
