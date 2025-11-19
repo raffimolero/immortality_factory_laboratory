@@ -1,46 +1,92 @@
 use super::*;
 
+pub trait Entity {
+    fn get_world_id(&self) -> WorldId;
+    fn inside_of(&self, pasted_world: &PastedWorld) -> Self;
+}
+
+impl Entity for StructureId {
+    fn get_world_id(&self) -> WorldId {
+        self.world_id
+    }
+
+    fn inside_of(&self, pasted_world: &PastedWorld) -> Self {
+        Self {
+            world_id: pasted_world.host_id,
+            index: self.index + pasted_world.base_index,
+            ..*self
+        }
+    }
+}
+
+impl Entity for StructureInput {
+    fn get_world_id(&self) -> WorldId {
+        self.structure_id.world_id
+    }
+
+    fn inside_of(&self, pasted_world: &PastedWorld) -> Self {
+        Self {
+            structure_id: self.structure_id.inside_of(pasted_world),
+            offset: self.offset + pasted_world.offset,
+        }
+    }
+}
+
+impl Entity for StructureOutput {
+    fn get_world_id(&self) -> WorldId {
+        self.structure_id.world_id
+    }
+
+    fn inside_of(&self, pasted_world: &PastedWorld) -> Self {
+        Self {
+            structure_id: self.structure_id.inside_of(pasted_world),
+            offset: self.offset + pasted_world.offset,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PastedWorld {
     blueprint_id: WorldId,
     host_id: WorldId,
     base_index: usize,
+    offset: Offset,
 }
 
 impl PastedWorld {
-    pub fn get_in_host(&self, structure: StructureId) -> StructureId {
+    pub fn get_in_host<E: Entity>(&self, entity: E) -> E {
         assert_eq!(
-            structure.world_id, self.blueprint_id,
+            entity.get_world_id(),
+            self.blueprint_id,
             "World IDs must match."
         );
-        StructureId {
-            world_id: self.host_id,
-            index: structure.index + self.base_index,
-            ..structure
-        }
+        entity.inside_of(self)
     }
 }
 
 impl World {
     pub fn paste(&mut self, blueprint: &Self, x: i32, y: i32) -> PastedWorld {
         let base_index = self.structures.len();
+        let offset = Offset { x, y };
         self.structures.extend(
             blueprint
                 .structures
                 .iter()
                 .cloned()
-                .map(|pos_struct| pos_struct + Offset { x, y }),
+                .map(|structure| structure + offset),
         );
         self.connections.extend(
             blueprint
                 .connections
                 .iter()
-                .map(|conn| *conn + Offset { x, y }),
+                .copied()
+                .map(|connection| connection + offset),
         );
         PastedWorld {
             blueprint_id: blueprint.world_id,
             host_id: self.world_id,
             base_index,
+            offset,
         }
     }
 

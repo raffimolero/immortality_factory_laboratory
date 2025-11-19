@@ -1,4 +1,4 @@
-mod blueprint;
+pub mod blueprint;
 
 use std::{
     fmt::{self, Write},
@@ -48,6 +48,17 @@ impl Position {
 pub struct Offset {
     pub x: i32,
     pub y: i32,
+}
+
+impl Add<Offset> for Offset {
+    type Output = Self;
+
+    fn add(self, rhs: Offset) -> Self::Output {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+        }
+    }
 }
 
 impl Add<Offset> for Position {
