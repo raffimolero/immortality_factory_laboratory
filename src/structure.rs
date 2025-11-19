@@ -63,8 +63,8 @@ impl Structure {
             SingleStorage => 19,
             Laboratory => 20,
             RitualInfuser => 12,
-            BigMerger => 9,
-            BigSplitter => 4,
+            BigMerger => 4,
+            BigSplitter => 9,
         }
     }
 
@@ -251,11 +251,11 @@ impl Structure {
             ),
             BigMerger => writeln!(
                 f,
-                r#"{id}-struct=\"{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:5.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}}],+type+:12,+machine_type+:{{+name+:+Big Merger+,+type+:12,+description+:+Merges Inputs. Lowest always first.+,+sprite+:53,+machine_cost+:{{+cost_type_list+:[5,5,5,5,5,5,5],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:true,+machine_speed+:1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}},{{+index+:1.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}},{{+index+:2.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}},{{+index+:3.0,+column+:0.0,+row+:3.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}},{{+index+:4.0,+column+:0.0,+row+:4.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}}]}}\""#
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:5.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}}],+type+:12,+machine_type+:{{+name+:+Big Merger+,+type+:12,+description+:+Merges Inputs. Lowest always first.+,+sprite+:53,+machine_cost+:{{+cost_type_list+:[5,5,5,5,5,5,5],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:true,+machine_speed+:1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}},{{+index+:1.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}},{{+index+:2.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}},{{+index+:3.0,+column+:0.0,+row+:3.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}},{{+index+:4.0,+column+:0.0,+row+:4.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}}]}}""#
             ),
             BigSplitter => writeln!(
                 f,
-                r#"{id}-struct=\"{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:1.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:2.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:3.0,+column+:0.0,+row+:3.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:4.0,+column+:0.0,+row+:4.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}}],+type+:13,+machine_type+:{{+name+:+Big Splitter+,+type+:13,+description+:+Splits Outputs. Lowest always first.+,+sprite+:22,+machine_cost+:{{+cost_type_list+:[5,5,5,5,5,5,5],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:true,+machine_speed+:1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:5.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}}]}}\""#
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:1.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:2.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:3.0,+column+:0.0,+row+:3.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}},{{+index+:4.0,+column+:0.0,+row+:4.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:-1.0}}],+type+:13,+machine_type+:{{+name+:+Big Splitter+,+type+:13,+description+:+Splits Outputs. Lowest always first.+,+sprite+:22,+machine_cost+:{{+cost_type_list+:[5,5,5,5,5,5,5],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:true,+machine_speed+:1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:5.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:-1.0}}]}}""#
             ),
         }
     }
