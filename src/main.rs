@@ -3,7 +3,7 @@ mod immortality_factory;
 use immortality_factory::prelude::*;
 use std::fs;
 
-fn storage() -> World {
+fn all_items() -> World {
     let mut row = World::new();
     let mut vaults = vec![];
     for (i, item) in Item::ITEMS.iter().copied().enumerate() {
@@ -13,22 +13,22 @@ fn storage() -> World {
                 storage: [item; 16],
                 output: item,
             },
-            (i * 6) as i32,
+            (i * 5) as i32,
             0,
         ));
     }
-    let mut storage = World::new();
+    let mut grid = World::new();
     let mut prev = None;
     for i in 0..16 {
-        let cur = storage.paste(&row, 0, i * 2);
+        let cur = grid.paste(&row, 0, i * 2);
         if let Some(prev) = &prev {
             for v in vaults.iter() {
-                storage.connect(v.inside(prev).output(0), v.inside(&cur).input(0));
+                grid.connect(v.inside(prev).output(0), v.inside(&cur).input(0));
             }
         }
         prev = Some(cur);
     }
-    storage
+    grid
 }
 
 fn main() {
@@ -39,7 +39,7 @@ fn main() {
 
     let mut world = World::new();
     world.place_structure(Laboratory, 0, -2);
-    world.paste(&storage(), 0, 0);
+    world.paste(&all_items(), 0, 0);
 
     // let stack = world.stack(&mana_refinery, 0, 0, 0, 2, 4);
     // let merge = world.place_structure(BigMerger, 8, 2);
