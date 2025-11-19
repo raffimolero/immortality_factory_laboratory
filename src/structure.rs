@@ -1,0 +1,198 @@
+use crate::{items::Item, world::Offset};
+use std::fmt::{self, Write};
+
+use Structure::*;
+
+pub struct ConnectorData {
+    pub inputs: &'static [Offset],
+    pub outputs: &'static [Offset],
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Structure {
+    AirPump,
+    Refinery(Box<[Item; 12]>),
+    Disharmonizer,
+    Unifier,
+    SubdimensionalMarket,
+    Splitter,
+    Merger,
+    StorageVault(Box<[Item; 16]>),
+    AbysalDoor,
+    SingleStorage,
+    Laboratory,
+    RitualInfuser,
+}
+
+impl Structure {
+    /// i have no idea what this number means
+    fn object_number(&self) -> u8 {
+        match self {
+            AirPump => 3,
+            Refinery(_) => 5,
+            Disharmonizer => 2,
+            Unifier => 1,
+            SubdimensionalMarket => 6,
+            Splitter => 23,
+            Merger => 26,
+            StorageVault(_) => 0,
+            AbysalDoor => 18,
+            SingleStorage => 19,
+            Laboratory => 20,
+            RitualInfuser => 12,
+        }
+    }
+
+    pub fn storage_capacity(&self) -> usize {
+        match self {
+            Refinery(x) => x.len(),
+            StorageVault(x) => x.len(),
+            _ => 0,
+        }
+    }
+
+    pub fn get_storage(&self) -> &[Item] {
+        match self {
+            Refinery(x) => &**x,
+            StorageVault(x) => &**x,
+            _ => &[],
+        }
+    }
+
+    pub fn connectors(&self) -> ConnectorData {
+        match self {
+            AirPump => ConnectorData {
+                inputs: &[],
+                outputs: &[Offset { x: 1, y: 1 }],
+            },
+            Refinery(_) => ConnectorData {
+                inputs: &[Offset { x: 0, y: 0 }],
+                outputs: &[Offset { x: 5, y: 0 }],
+            },
+            Disharmonizer => ConnectorData {
+                inputs: &[Offset { x: 0, y: 3 }],
+                outputs: &[
+                    Offset { x: 3, y: 0 },
+                    Offset { x: 3, y: 1 },
+                    Offset { x: 3, y: 2 },
+                    Offset { x: 3, y: 3 },
+                ],
+            },
+            Unifier => ConnectorData {
+                inputs: &[
+                    Offset { x: 0, y: 4 },
+                    Offset { x: 1, y: 4 },
+                    Offset { x: 2, y: 4 },
+                ],
+                outputs: &[Offset { x: 1, y: 0 }],
+            },
+            SubdimensionalMarket => ConnectorData {
+                inputs: &[Offset { x: 3, y: 4 }],
+                outputs: &[
+                    Offset { x: 3, y: 0 },
+                    Offset { x: 3, y: 1 },
+                    Offset { x: 3, y: 2 },
+                ],
+            },
+            Splitter => ConnectorData {
+                inputs: &[Offset { x: 0, y: 1 }],
+                outputs: &[Offset { x: 0, y: 0 }, Offset { x: 0, y: 2 }],
+            },
+            Merger => ConnectorData {
+                inputs: &[Offset { x: 0, y: 0 }, Offset { x: 0, y: 2 }],
+                outputs: &[Offset { x: 0, y: 1 }],
+            },
+            StorageVault(_) => ConnectorData {
+                inputs: &[Offset { x: 0, y: 1 }],
+                outputs: &[Offset { x: 4, y: 1 }],
+            },
+            AbysalDoor => ConnectorData {
+                inputs: &[Offset { x: 0, y: 0 }],
+                outputs: &[],
+            },
+            SingleStorage => ConnectorData {
+                inputs: &[],
+                outputs: &[],
+            },
+            Laboratory => ConnectorData {
+                inputs: &[Offset { x: 0, y: 1 }],
+                outputs: &[],
+            },
+            RitualInfuser => ConnectorData {
+                inputs: &[
+                    Offset { x: 0, y: 1 },
+                    Offset { x: 2, y: 0 },
+                    Offset { x: 4, y: 1 },
+                ],
+                outputs: &[],
+            },
+        }
+    }
+
+    fn export_stored_item(
+        f: &mut impl Write,
+        id: usize,
+        item_index: usize,
+        item: Item,
+    ) -> fmt::Result {
+        let item_id = item as i8;
+        writeln!(f, "{id}-storage_load_at {item_index}=\"{item_id}.000000\"")
+    }
+
+    pub fn export(&self, f: &mut impl Write, id: usize, raw_x: i32, raw_y: i32) -> fmt::Result {
+        let world_y = raw_y * 22;
+        let world_x = raw_x * 22;
+        let str_struct = self.export_struct(id);
+        let obj_num = self.object_number();
+
+        writeln!(f, "{str_struct}")?;
+        writeln!(f, "{id}-y=\"{world_y}.000000\"")?;
+        writeln!(f, "{id}-x=\"{world_x}.000000\"")?;
+        writeln!(f, "{id}-object=\"{obj_num}.000000\"")?;
+        for (i, item) in self.get_storage().iter().enumerate() {
+            Self::export_stored_item(f, id, i, *item)?;
+        }
+        Ok(())
+    }
+
+    fn export_struct(&self, id: usize) -> String {
+        match self {
+            AirPump => format!(
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:1.0,+row+:1.0,+content_column+:1.0,+type+:1,+content_row+:0.0,+content+:0}}],+type+:0.0,+machine_type+:{{+name+:+Air Pump+,+type+:0,+description+:+Sucks in potent air from the surrounding valley and puts it in a bottle.+,+sprite+:5,+machine_cost+:{{+cost_type_list+:[8,0,0,1,1,2,2,5,15,16,16,16,7,7,7,7,7,7,20,20,20,21,21,21,21,21,21],+cost_amount_list+:[3.0,2.0,4.0,4.0,4.0,4.0,3.0,4.0,5.0,3.0,3.0,3.0,4.0,4.0,3.0,3.0,2.0,2.0,3.0,3.0,2.0,3.0,3.0,2.0,2.0,1.0,1.0]}},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:8.0}},+input_list+:[]}}""#
+            ),
+            Refinery(_) => format!(
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:5.0,+row+:0.0,+content_column+:5.0,+type+:1,+content_row+:1.0,+content+:-1.0}}],+type+:1.0,+machine_type+:{{+name+:+Refinery+,+type+:1,+description+:+Improves a resource, turning it into something better.+,+sprite+:35,+machine_cost+:{{+cost_type_list+:[0,1,1,1,1,3,3,3,3,3,3,3,15,15,15,15,16,16,16],+cost_amount_list+:[3.0,2.0,2.0,2.0,2.0,4.0,3.0,3.0,2.0,2.0,2.0,2.0,3.0,3.0,2.0,2.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:16.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:0.0,+type+:0,+content_row+:1.0,+content+:-1.0}}]}}""#
+            ),
+            Disharmonizer => format!(
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:3.0,+row+:0.0,+content_column+:2.0,+type+:1,+content_row+:0.0,+content+:-1.0}},{{+index+:1.0,+column+:3.0,+row+:1.0,+content_column+:2.0,+type+:1,+content_row+:1.0,+content+:-1.0}},{{+index+:2.0,+column+:3.0,+row+:2.0,+content_column+:2.0,+type+:1,+content_row+:2.0,+content+:-1.0}},{{+index+:3.0,+column+:3.0,+row+:3.0,+content_column+:2.0,+type+:1,+content_row+:3.0,+content+:-1.0}}],+type+:2.0,+machine_type+:{{+name+:+Disharmonizer+,+type+:2,+description+:+Breaks resources apart by nature and magical sequence.+,+sprite+:37,+machine_cost+:{{+cost_type_list+:[1,5,5,15,17,17,17,17,17,17,17,17,18,18,18,18,18,18,20,20,20,20,20,21,21,21,21],+cost_amount_list+:[3.0,4.0,2.0,4.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,2.0,2.0,4.0,3.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:16.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:3.0,+content_column+:0.0,+type+:0,+content_row+:2.0,+content+:-1.0}}]}}""#
+            ),
+            Unifier => format!(
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:1.0,+row+:0.0,+content_column+:1.0,+type+:1,+content_row+:1.0,+content+:-1.0}}],+type+:3.0,+machine_type+:{{+name+:+Unifier+,+type+:3,+description+:+Converges multiple resources into one.+,+sprite+:61,+machine_cost+:{{+cost_type_list+:[2,15,15,15,15,15,7,7,7,16,16,16,16],+cost_amount_list+:[4.0,4.0,3.0,2.0,2.0,2.0,3.0,3.0,2.0,4.0,3.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:16.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:4.0,+content_column+:0.0,+type+:0,+content_row+:3.0,+content+:-1.0}},{{+index+:1.0,+column+:1.0,+row+:4.0,+content_column+:1.0,+type+:0,+content_row+:3.0,+content+:-1.0}},{{+index+:2.0,+column+:2.0,+row+:4.0,+content_column+:2.0,+type+:0,+content_row+:3.0,+content+:-1.0}}]}}""#
+            ),
+            SubdimensionalMarket => format!(
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:3.0,+row+:0.0,+content_column+:2.0,+type+:1.0,+content_row+:0.0,+content+:-1.0}},{{+index+:1.0,+column+:3.0,+row+:1.0,+content_column+:2.0,+type+:1.0,+content_row+:1.0,+content+:7}},{{+index+:2.0,+column+:3.0,+row+:2.0,+content_column+:2.0,+type+:1.0,+content_row+:2.0,+content+:6}}],+type+:4.0,+machine_type+:{{+name+:+Subdimensional Market+,+type+:4.0,+description+:+Sell any resource for coin. Some are more worth than others.+,+sprite+:52.0,+machine_cost+:{{+cost_type_list+:[10.0,11.0,11.0,8.0,8.0,21.0],+cost_amount_list+:[4.0,4.0,3.0,4.0,3.0,2.0]}},+cost_input+:0.0,+speed_increase+:4.0,+unlocked+:1.0,+machine_speed+:8.0}},+input_list+:[{{+index+:0.0,+column+:3.0,+row+:4.0,+content_column+:2.0,+type+:0.0,+content_row+:4.0,+content+:-1.0}}]}}""#
+            ),
+            Splitter => format!(
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:1.0,+content_row+:-1.0,+content+:-1.0}},{{+index+:1.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:1.0,+content_row+:-1.0,+content+:-1.0}}],+type+:5.0,+machine_type+:{{+name+:+Splitter+,+type+:5.0,+description+:+Split an incomming connection into two outputs.+,+sprite+:24.0,+machine_cost+:{{+cost_type_list+:[1.0,1.0,5.0,5.0,5.0,5.0,5.0],+cost_amount_list+:[3.0,3.0,3.0,3.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:0.0,+content_row+:-1.0,+content+:-1.0}}]}}""#
+            ),
+            Merger => format!(
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:1.0,+content_row+:-1.0,+content+:-1.0}}],+type+:6.0,+machine_type+:{{+name+:+Merger+,+type+:6.0,+description+:+Merges two incomming connections into one output.+,+sprite+:25.0,+machine_cost+:{{+cost_type_list+:[1.0,1.0,1.0,1.0,4.0,4.0,5.0,5.0,5.0,5.0,5.0],+cost_amount_list+:[3.0,3.0,2.0,2.0,3.0,2.0,3.0,3.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:0.0,+content_row+:-1.0,+content+:-1.0}},{{+index+:1.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:0.0,+content_row+:-1.0,+content+:-1.0}}]}}""#
+            ),
+            StorageVault(_) => format!(
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:4.0,+row+:1.0,+content_column+:4.0,+type+:1.0,+content_row+:0.0,+content+:25.0}}],+type+:7.0,+machine_type+:{{+name+:+Storage Vault+,+type+:7.0,+description+:+A machine which keeps your resources safe behind thick glass.+,+sprite+:6.0,+machine_cost+:{{+cost_type_list+:[4.0,5.0,5.0,5.0,5.0,5.0],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:1.0,+content_column+:0.0,+type+:0.0,+content_row+:0.0,+content+:25.0}}]}}""#
+            ),
+            AbysalDoor => format!(
+                r#"{id}-struct="{{+output_list+:[],+type+:8.0,+machine_type+:{{+name+:+Abysal Door+,+type+:8.0,+description+:+Get rid of all you don't have a need for.+,+sprite+:3.0,+machine_cost+:{{+cost_type_list+:[2.0,2.0,2.0,2.0,2.0],+cost_amount_list+:[4.0,3.0,3.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:4.0,+unlocked+:1.0,+machine_speed+:2.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:1.0,+type+:0.0,+content_row+:0.0,+content+:-1.0}}]}}""#
+            ),
+            SingleStorage => format!(
+                r#"{id}-struct="{{+output_list+:[],+type+:9.0,+machine_type+:{{+name+:+Single Storage+,+type+:9.0,+description+:+A single storage place for a single resource.+,+sprite+:17.0,+machine_cost+:{{+cost_type_list+:[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,5.0,5.0,5.0],+cost_amount_list+:[2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0}},+input_list+:[{{+index+:0.0,+column+:-1.0,+row+:-1.0,+content_column+:0.0,+type+:0.0,+content_row+:0.0,+content+:-1.0}}]}}""#
+            ),
+            Laboratory => format!(
+                r#"{id}-struct="{{+output_list+:[],+type+:10.0,+machine_type+:{{+name+:+Laboratory+,+type+:10.0,+description+:+Used to research more stuff.+,+sprite+:45.0,+machine_cost+:{{+cost_type_list+:[8.0],+cost_amount_list+:[100.0]}},+cost_input+:10.0,+speed_increase+:32.0,+unlocked+:0.0,+machine_speed+:4.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:1.0,+content_column+:0.0,+type+:0.0,+content_row+:0.0,+content+:-1.0}}]}}""#
+            ),
+            RitualInfuser => format!(
+                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:-1.0,+row+:-1.0,+content_column+:2.0,+type+:1.0,+content_row+:3.0,+content+:-1.0}}],+type+:11.0,+machine_type+:{{+name+:+Ritual Infuser+,+type+:11.0,+description+:+Automate magical rituals. Used to create the phylactery.+,+sprite+:44.0,+machine_cost+:{{+cost_type_list+:[21.0,25.0,25.0,25.0,25.0],+cost_amount_list+:[8.0,2.0,2.0,1.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:1.0,+content_column+:1.0,+type+:0.0,+content_row+:1.0,+content+:-1.0}},{{+index+:1.0,+column+:2.0,+row+:0.0,+content_column+:2.0,+type+:0.0,+content_row+:1.0,+content+:-1.0}},{{+index+:2.0,+column+:4.0,+row+:1.0,+content_column+:3.0,+type+:0.0,+content_row+:1.0,+content+:-1.0}}]}}""#
+            ),
+        }
+    }
+}
