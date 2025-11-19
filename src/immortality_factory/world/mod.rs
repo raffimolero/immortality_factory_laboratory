@@ -6,7 +6,7 @@ use std::{
     sync::Mutex,
 };
 
-use super::structure::{StructureKind, StructureWithData};
+use super::structure::{StructureData, StructureKind};
 
 type ID = u32;
 static WORLD_COUNT: Mutex<ID> = Mutex::new(0);
@@ -59,10 +59,10 @@ impl Offset {
     }
 }
 
-impl Add<Offset> for Offset {
+impl Add<Self> for Offset {
     type Output = Self;
 
-    fn add(self, rhs: Offset) -> Self::Output {
+    fn add(self, rhs: Self) -> Self::Output {
         Self {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
@@ -81,7 +81,7 @@ impl Add<Offset> for Position {
     }
 }
 
-impl Add<Offset> for PositionedStructure {
+impl Add<Offset> for PositionedStructureData {
     type Output = Self;
 
     fn add(self, rhs: Offset) -> Self::Output {
@@ -121,21 +121,21 @@ impl DirectConnection {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct PositionedStructure {
+pub struct PositionedStructureData {
     pub pos: Position,
-    pub structure: StructureWithData,
+    pub structure: StructureData,
 }
 
 /// technically only the index is necessary. the rest are for debug assertions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StructureId {
+pub struct Structure {
     world_id: WorldId,
     index: usize,
     kind: StructureKind,
 }
 
-impl StructureId {
-    pub fn input(self, port: usize) -> StructureInput {
+impl Structure {
+    pub fn input(self, port: usize) -> PortIn {
         let structure = &self.kind;
         let offset = structure
             .connectors()
@@ -146,13 +146,13 @@ impl StructureId {
             .unwrap_or_else(|| {
                 panic!("Tried to get {structure:?} input port #{port}, does not exist.")
             });
-        StructureInput {
+        PortIn {
             structure_id: self,
             offset,
         }
     }
 
-    pub fn output(self, port: usize) -> StructureOutput {
+    pub fn output(self, port: usize) -> PortOut {
         let structure = &self.kind;
         let offset = structure
             .connectors()
@@ -163,29 +163,29 @@ impl StructureId {
             .unwrap_or_else(|| {
                 panic!("Tried to get {structure:?} output port #{port}, does not exist.")
             });
-        StructureOutput {
+        PortOut {
             structure_id: self,
             offset,
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StructureInput {
-    structure_id: StructureId,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PortIn {
+    structure_id: Structure,
     offset: Offset,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StructureOutput {
-    structure_id: StructureId,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct PortOut {
+    structure_id: Structure,
     offset: Offset,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct World {
     world_id: WorldId,
-    structures: Vec<PositionedStructure>,
+    structures: Vec<PositionedStructureData>,
     connections: Vec<DirectConnection>,
 }
 
@@ -203,16 +203,16 @@ impl World {
     /// returns the index of the structure placed
     pub fn place_structure_with_data(
         &mut self,
-        structure: StructureWithData,
+        structure: StructureData,
         x: i32,
         y: i32,
-    ) -> StructureId {
-        let id = StructureId {
+    ) -> Structure {
+        let id = Structure {
             world_id: self.world_id,
             index: self.structures.len(),
             kind: structure.kind(),
         };
-        self.structures.push(PositionedStructure {
+        self.structures.push(PositionedStructureData {
             pos: Position { x, y },
             structure,
         });
@@ -220,11 +220,11 @@ impl World {
     }
 
     /// returns the index of the structure placed
-    pub fn place_structure(&mut self, structure: StructureKind, x: i32, y: i32) -> StructureId {
+    pub fn place_structure(&mut self, structure: StructureKind, x: i32, y: i32) -> Structure {
         self.place_structure_with_data(structure.into(), x, y)
     }
 
-    pub fn get_structure(&self, structure: StructureId) -> &PositionedStructure {
+    pub fn get_structure(&self, structure: Structure) -> &PositionedStructureData {
         assert_eq!(structure.world_id, self.world_id, "World IDs must match.");
         self.structures.get(structure.index).unwrap_or_else(|| {
             panic!(
@@ -236,7 +236,7 @@ impl World {
     }
 
     /// panics if you mess anything up lmao
-    pub fn connect(&mut self, source: StructureOutput, destination: StructureInput) {
+    pub fn connect(&mut self, source: PortOut, destination: PortIn) {
         let src = self.get_structure(source.structure_id);
         let dst = self.get_structure(destination.structure_id);
 
@@ -255,7 +255,7 @@ impl World {
 [Machines]"#
         )?;
 
-        for (i, PositionedStructure { pos, structure }) in self.structures.iter().enumerate() {
+        for (i, PositionedStructureData { pos, structure }) in self.structures.iter().enumerate() {
             structure.export(f, i, pos.x, pos.y)?;
         }
         let structure_count = self.structures.len();

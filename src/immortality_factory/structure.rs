@@ -1,5 +1,33 @@
 use super::{item::Item, world::Offset};
-use std::fmt::{self, Write};
+use std::{
+    fmt::{self, Write},
+    ops::Add,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Size {
+    pub w: i32,
+    pub h: i32,
+}
+
+impl Size {
+    pub const NULL: Self = Self { w: -1, h: -1 };
+
+    pub fn non_null(&self) -> bool {
+        *self != Self::NULL
+    }
+}
+
+impl Add<Self> for Size {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            w: self.w + rhs.w,
+            h: self.h + rhs.h,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConnectorData {
@@ -8,7 +36,7 @@ pub struct ConnectorData {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum StructureWithData {
+pub enum StructureData {
     AirPump {
         output: Item,
     },
@@ -66,7 +94,7 @@ pub enum StructureWithData {
     },
 }
 
-impl StructureWithData {
+impl StructureData {
     pub fn kind(&self) -> StructureKind {
         self.into()
     }
@@ -220,22 +248,22 @@ pub enum StructureKind {
 }
 
 impl StructureKind {
-    pub fn size(&self) -> (u8, u8) {
+    pub fn size(&self) -> Size {
         match self {
-            Self::AirPump => (2, 2),
-            Self::Refinery => (6, 2),
-            Self::Disharmonizer => (4, 4),
-            Self::Unifier => (4, 5),
-            Self::SubdimensionalMarket => (4, 5),
-            Self::Splitter => (1, 3),
-            Self::Merger => (1, 3),
-            Self::StorageVault => (5, 2),
-            Self::AbysalDoor => (4, 1),
-            Self::SingleStorage => (1, 1),
-            Self::Laboratory => (5, 2),
-            Self::RitualInfuser => (5, 5),
-            Self::BigMerger => (1, 6),
-            Self::BigSplitter => (1, 6),
+            Self::AirPump => Size { w: 2, h: 2 },
+            Self::Refinery => Size { w: 6, h: 2 },
+            Self::Disharmonizer => Size { w: 4, h: 4 },
+            Self::Unifier => Size { w: 4, h: 5 },
+            Self::SubdimensionalMarket => Size { w: 4, h: 5 },
+            Self::Splitter => Size { w: 1, h: 3 },
+            Self::Merger => Size { w: 1, h: 3 },
+            Self::StorageVault => Size { w: 5, h: 2 },
+            Self::AbysalDoor => Size { w: 4, h: 1 },
+            Self::SingleStorage => Size { w: 1, h: 1 },
+            Self::Laboratory => Size { w: 5, h: 2 },
+            Self::RitualInfuser => Size { w: 5, h: 5 },
+            Self::BigMerger => Size { w: 1, h: 6 },
+            Self::BigSplitter => Size { w: 1, h: 6 },
         }
     }
 
@@ -350,28 +378,28 @@ impl StructureKind {
     }
 }
 
-impl From<&StructureWithData> for StructureKind {
-    fn from(value: &StructureWithData) -> Self {
+impl From<&StructureData> for StructureKind {
+    fn from(value: &StructureData) -> Self {
         match value {
-            StructureWithData::AirPump { .. } => Self::AirPump,
-            StructureWithData::Refinery { .. } => Self::Refinery,
-            StructureWithData::Disharmonizer { .. } => Self::Disharmonizer,
-            StructureWithData::Unifier { .. } => Self::Unifier,
-            StructureWithData::SubdimensionalMarket { .. } => Self::SubdimensionalMarket,
-            StructureWithData::Splitter { .. } => Self::Splitter,
-            StructureWithData::Merger { .. } => Self::Merger,
-            StructureWithData::StorageVault { .. } => Self::StorageVault,
-            StructureWithData::AbysalDoor { .. } => Self::AbysalDoor,
-            StructureWithData::SingleStorage { .. } => Self::SingleStorage,
-            StructureWithData::Laboratory { .. } => Self::Laboratory,
-            StructureWithData::RitualInfuser { .. } => Self::RitualInfuser,
-            StructureWithData::BigMerger { .. } => Self::BigMerger,
-            StructureWithData::BigSplitter { .. } => Self::BigSplitter,
+            StructureData::AirPump { .. } => Self::AirPump,
+            StructureData::Refinery { .. } => Self::Refinery,
+            StructureData::Disharmonizer { .. } => Self::Disharmonizer,
+            StructureData::Unifier { .. } => Self::Unifier,
+            StructureData::SubdimensionalMarket { .. } => Self::SubdimensionalMarket,
+            StructureData::Splitter { .. } => Self::Splitter,
+            StructureData::Merger { .. } => Self::Merger,
+            StructureData::StorageVault { .. } => Self::StorageVault,
+            StructureData::AbysalDoor { .. } => Self::AbysalDoor,
+            StructureData::SingleStorage { .. } => Self::SingleStorage,
+            StructureData::Laboratory { .. } => Self::Laboratory,
+            StructureData::RitualInfuser { .. } => Self::RitualInfuser,
+            StructureData::BigMerger { .. } => Self::BigMerger,
+            StructureData::BigSplitter { .. } => Self::BigSplitter,
         }
     }
 }
 
-impl From<StructureKind> for StructureWithData {
+impl From<StructureKind> for StructureData {
     fn from(value: StructureKind) -> Self {
         use Item::Empty;
         match value {

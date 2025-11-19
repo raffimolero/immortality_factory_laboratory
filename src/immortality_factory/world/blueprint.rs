@@ -3,6 +3,7 @@ use super::*;
 pub trait Entity: Sized {
     fn get_world_id(&self) -> WorldId;
     fn _map_inside(&self, pasted_world: &PastedWorld) -> Self;
+
     fn inside(&self, pasted_world: &PastedWorld) -> Self {
         assert_eq!(
             self.get_world_id(),
@@ -13,7 +14,7 @@ pub trait Entity: Sized {
     }
 }
 
-impl Entity for StructureId {
+impl Entity for Structure {
     fn get_world_id(&self) -> WorldId {
         self.world_id
     }
@@ -22,12 +23,12 @@ impl Entity for StructureId {
         Self {
             world_id: pasted_world.host_id,
             index: self.index + pasted_world.base_index,
-            ..*self
+            kind: self.kind,
         }
     }
 }
 
-impl Entity for StructureInput {
+impl Entity for PortIn {
     fn get_world_id(&self) -> WorldId {
         self.structure_id.world_id
     }
@@ -35,12 +36,12 @@ impl Entity for StructureInput {
     fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
         Self {
             structure_id: self.structure_id._map_inside(pasted_world),
-            offset: self.offset + pasted_world.offset,
+            offset: self.offset,
         }
     }
 }
 
-impl Entity for StructureOutput {
+impl Entity for PortOut {
     fn get_world_id(&self) -> WorldId {
         self.structure_id.world_id
     }
@@ -48,7 +49,7 @@ impl Entity for StructureOutput {
     fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
         Self {
             structure_id: self.structure_id._map_inside(pasted_world),
-            offset: self.offset + pasted_world.offset,
+            offset: self.offset,
         }
     }
 }
@@ -59,6 +60,12 @@ pub struct PastedWorld {
     host_id: WorldId,
     base_index: usize,
     offset: Offset,
+}
+
+impl PastedWorld {
+    pub fn get<E: Entity>(&self, entity: E) -> E {
+        entity.inside(self)
+    }
 }
 
 impl World {
