@@ -2,12 +2,11 @@ pub mod blueprint;
 
 use std::{
     fmt::{self, Write},
-    mem::Discriminant,
     ops::Add,
     sync::Mutex,
 };
 
-use crate::structure::{StructureKind, StructureWithData};
+use super::structure::{StructureKind, StructureWithData};
 
 type ID = u32;
 static WORLD_COUNT: Mutex<ID> = Mutex::new(0);
@@ -104,21 +103,6 @@ impl Add<Offset> for DirectConnection {
     }
 }
 
-pub struct ConnectorOut {
-    pub structure_id: StructureId,
-    port: usize,
-}
-
-pub struct ConnectorIn {
-    pub structure_id: StructureId,
-    port: usize,
-}
-
-pub struct LogicalConnection {
-    src: ConnectorOut,
-    dst: ConnectorIn,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 struct DirectConnection {
     src: Position,
@@ -213,6 +197,8 @@ impl World {
             connections: vec![],
         }
     }
+
+    // TODO: collision detection
 
     /// returns the index of the structure placed
     pub fn place_structure_with_data(

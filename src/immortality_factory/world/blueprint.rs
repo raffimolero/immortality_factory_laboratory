@@ -1,8 +1,16 @@
 use super::*;
 
-pub trait Entity {
+pub trait Entity: Sized {
     fn get_world_id(&self) -> WorldId;
-    fn inside_of(&self, pasted_world: &PastedWorld) -> Self;
+    fn _map_inside(&self, pasted_world: &PastedWorld) -> Self;
+    fn inside(&self, pasted_world: &PastedWorld) -> Self {
+        assert_eq!(
+            self.get_world_id(),
+            pasted_world.blueprint_id,
+            "World IDs must match."
+        );
+        self._map_inside(pasted_world)
+    }
 }
 
 impl Entity for StructureId {
@@ -10,7 +18,7 @@ impl Entity for StructureId {
         self.world_id
     }
 
-    fn inside_of(&self, pasted_world: &PastedWorld) -> Self {
+    fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
         Self {
             world_id: pasted_world.host_id,
             index: self.index + pasted_world.base_index,
@@ -24,9 +32,9 @@ impl Entity for StructureInput {
         self.structure_id.world_id
     }
 
-    fn inside_of(&self, pasted_world: &PastedWorld) -> Self {
+    fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
         Self {
-            structure_id: self.structure_id.inside_of(pasted_world),
+            structure_id: self.structure_id._map_inside(pasted_world),
             offset: self.offset + pasted_world.offset,
         }
     }
@@ -37,9 +45,9 @@ impl Entity for StructureOutput {
         self.structure_id.world_id
     }
 
-    fn inside_of(&self, pasted_world: &PastedWorld) -> Self {
+    fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
         Self {
-            structure_id: self.structure_id.inside_of(pasted_world),
+            structure_id: self.structure_id._map_inside(pasted_world),
             offset: self.offset + pasted_world.offset,
         }
     }
@@ -53,17 +61,6 @@ pub struct PastedWorld {
     offset: Offset,
 }
 
-impl PastedWorld {
-    pub fn get_in_host<E: Entity>(&self, entity: E) -> E {
-        assert_eq!(
-            entity.get_world_id(),
-            self.blueprint_id,
-            "World IDs must match."
-        );
-        entity.inside_of(self)
-    }
-}
-
 impl World {
     pub fn paste(&mut self, blueprint: &Self, x: i32, y: i32) -> PastedWorld {
         let base_index = self.structures.len();
@@ -75,6 +72,7 @@ impl World {
                 .cloned()
                 .map(|structure| structure + offset),
         );
+        // TODO: collision detection
         self.connections.extend(
             blueprint
                 .connections

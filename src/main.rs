@@ -1,12 +1,7 @@
+mod immortality_factory;
+
+use immortality_factory::prelude::*;
 use std::fs;
-
-use item::Item::{self, *};
-use structure::{StructureKind::*, StructureWithData};
-use world::{blueprint::Entity, StructureId, World};
-
-mod item;
-mod structure;
-mod world;
 
 fn storage() -> World {
     let mut row = World::new();
@@ -22,13 +17,13 @@ fn storage() -> World {
             0,
         ));
     }
-    let mut prev = None;
     let mut storage = World::new();
+    let mut prev = None;
     for i in 0..16 {
         let cur = storage.paste(&row, 0, i * 2);
         if let Some(prev) = &prev {
             for v in vaults.iter() {
-                storage.connect(v.inside_of(prev).output(0), v.inside_of(&cur).input(0));
+                storage.connect(v.inside(prev).output(0), v.inside(&cur).input(0));
             }
         }
         prev = Some(cur);
