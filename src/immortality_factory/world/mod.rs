@@ -2,21 +2,24 @@ pub mod blueprint;
 
 use std::{
     fmt::{self, Write},
+    num::NonZeroU32,
     ops::Add,
     sync::Mutex,
 };
 
 use super::structure::{Size, StructureData, StructureKind};
 
-type ID = u32;
-static WORLD_COUNT: Mutex<ID> = Mutex::new(0);
+type ID = NonZeroU32;
+static WORLD_COUNT: Mutex<ID> = Mutex::new(NonZeroU32::new(1).unwrap());
 fn new_world_id() -> WorldId {
     // could be a UUID instead of an incrementing count
     let mut guard = WORLD_COUNT
         .lock()
         .expect("Failed to lock global WORLD_COUNT");
     let id = *guard;
-    *guard += 1;
+    *guard = guard
+        .checked_add(1)
+        .expect("How? You have more than u32::MAX worlds?");
     WorldId { id }
 }
 

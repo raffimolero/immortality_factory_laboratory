@@ -133,12 +133,24 @@ fn disharmonizer_stack() -> Blueprint {
             bp.connect(half.output(disharm_output), merger.input(merger_input));
         }
 
-        // make curse disharmonizers
-        for (i, merger) in mergers.iter().enumerate() {
-            let dh = bp.place(Disharmonizer, bp_w, i as i32 * Disharmonizer.height());
-            bp.connect(merger.output(0), dh.input(0));
-        }
-        bp_w += Disharmonizer.width();
+        // make curse disharmonizers and blood unifiers
+        let Size { w, h } = Disharmonizer.size();
+        let mut i = 0;
+        let c_dh = [
+            ((0, h * 0), (w, 0)),
+            ((0, h * 1), (w + 3, 0)),
+            ((0, h * 2), (w, h * 3 - 1)),
+            ((0, h * 3), (w + 3, h * 3 - 1)),
+        ]
+        .map(|((dh_x, dh_y), (uf_x, uf_y))| {
+            let dh = bp.place(Disharmonizer, bp_w + dh_x, dh_y);
+            let uf = bp.place(Unifier, bp_w + uf_x, uf_y);
+            bp.connect(mergers[i].output(0), dh.input(0));
+            bp.connect(dh.output(1), uf.input(0));
+            bp.connect(dh.output(2), uf.input(1));
+            i += 1;
+        });
+        bp_w += w * 3;
 
         Blueprint {
             contents: bp,
