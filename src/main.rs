@@ -80,42 +80,46 @@ fn mana_stack(merge_y: i32) -> Blueprint {
 fn disharmonizer_stack() -> Blueprint {
     let disharm_half = |merge_y| {
         let mut bp = World::new();
-        let mut x = 0;
+        let mut bp_w = 0;
         // refinery stacks
-        let mana = bp.place(&mana_stack(merge_y), x, 0);
-        x += mana.width();
+        let mana = bp.place(&mana_stack(merge_y), bp_w, 0);
+        bp_w += mana.width();
 
         // splitter
-        let split = bp.place(BigSplitter, x, merge_y);
+        let split = bp.place(BigSplitter, bp_w, merge_y);
         bp.connect(mana.output(0), split.input(0));
-        x += split.width();
+        bp_w += split.width();
 
-        // every disharmonizer
+        // mana disharmonizers
         let mut outputs = Vec::with_capacity(16);
         let Size { w, h } = Disharmonizer.size();
         for (i, (dx, dy)) in [(0, 0), (w, 0), (0, h), (w, h)].into_iter().enumerate() {
-            let dh = bp.place(Disharmonizer, x + dx, dy);
+            let dh = bp.place(Disharmonizer, bp_w + dx, dy);
             bp.connect(split.output(i + 1), dh.input(0));
             outputs.extend((0..4).map(|i| dh.output(i)));
         }
-        x += w * 2;
+        bp_w += w * 2;
 
         Blueprint {
             contents: bp,
-            size: Size { w: x, h: 8 },
+            size: Size { w: bp_w, h: 8 },
             inputs: vec![],
             outputs,
         }
     };
     let disharm_stack = {
         let mut bp = World::new();
+        // track the current width of the machine
+        let mut bp_w = 0;
 
         // 2 disharmonizer factories placed so that there are gaps in the middle for mergers
         let top = bp.place(&disharm_half(0), 0, 0);
         let bot = bp.place(&disharm_half(2), 0, top.height());
+        bp_w += top.width();
 
         // place mergers in empty space
         let mergers = [24, 25, 26, 27].map(|x| bp.place(Merger, x, 6));
+        // does not increase width
 
         // wire disharmonizers to mergers in a pattern
         // needs a bunch of math to compute
@@ -129,10 +133,17 @@ fn disharmonizer_stack() -> Blueprint {
             bp.connect(half.output(disharm_output), merger.input(merger_input));
         }
 
+        // make curse disharmonizers
+        for (i, merger) in mergers.iter().enumerate() {
+            let dh = bp.place(Disharmonizer, bp_w, i as i32 * Disharmonizer.height());
+            bp.connect(merger.output(0), dh.input(0));
+        }
+        bp_w += Disharmonizer.width();
+
         Blueprint {
             contents: bp,
             size: Size {
-                w: top.width(),
+                w: bp_w,
                 h: top.height() * 2,
             },
             inputs: vec![],
