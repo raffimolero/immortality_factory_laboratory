@@ -3,8 +3,6 @@ mod immortality_factory;
 use immortality_factory::prelude::*;
 use std::fs;
 
-use crate::immortality_factory::structure::Size;
-
 fn all_items() -> World {
     let mut row = World::new();
     let mut vaults = vec![];

@@ -9,31 +9,6 @@ use std::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Size {
-    pub w: i32,
-    pub h: i32,
-}
-
-impl Size {
-    pub const NULL: Self = Self { w: -1, h: -1 };
-
-    pub fn non_null(&self) -> bool {
-        *self != Self::NULL
-    }
-}
-
-impl Add<Self> for Size {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            w: self.w + rhs.w,
-            h: self.h + rhs.h,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConnectorData {
     pub inputs: &'static [Offset],
     pub outputs: &'static [Offset],
