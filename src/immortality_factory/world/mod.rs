@@ -1,5 +1,6 @@
 pub mod blueprint;
 
+use blueprint::Entity;
 use std::{
     fmt::{self, Write},
     ops::Add,
@@ -189,6 +190,37 @@ pub struct World {
     connections: Vec<DirectConnection>,
 }
 
+pub trait Placeable {
+    type Id: Entity;
+
+    fn place_in(self, world: &mut World, x: i32, y: i32) -> Self::Id;
+}
+
+impl Placeable for StructureData {
+    type Id = Structure;
+
+    fn place_in(self, world: &mut World, x: i32, y: i32) -> Self::Id {
+        let id = Structure {
+            world_id: world.world_id,
+            index: world.structures.len(),
+            kind: self.kind(),
+        };
+        world.structures.push(PositionedStructureData {
+            pos: Position { x, y },
+            structure: self,
+        });
+        id
+    }
+}
+
+impl Placeable for StructureKind {
+    type Id = Structure;
+
+    fn place_in(self, world: &mut World, x: i32, y: i32) -> Self::Id {
+        StructureData::from(self).place_in(world, x, y)
+    }
+}
+
 impl World {
     pub fn new() -> Self {
         Self {
@@ -199,29 +231,8 @@ impl World {
     }
 
     // TODO: collision detection
-
-    /// returns the index of the structure placed
-    pub fn place_structure_with_data(
-        &mut self,
-        structure: StructureData,
-        x: i32,
-        y: i32,
-    ) -> Structure {
-        let id = Structure {
-            world_id: self.world_id,
-            index: self.structures.len(),
-            kind: structure.kind(),
-        };
-        self.structures.push(PositionedStructureData {
-            pos: Position { x, y },
-            structure,
-        });
-        id
-    }
-
-    /// returns the index of the structure placed
-    pub fn place_structure(&mut self, structure: StructureKind, x: i32, y: i32) -> Structure {
-        self.place_structure_with_data(structure.into(), x, y)
+    pub fn place<P: Placeable>(&mut self, object: P, x: i32, y: i32) -> P::Id {
+        object.place_in(self, x, y)
     }
 
     pub fn get_structure(&self, structure: Structure) -> &PositionedStructureData {

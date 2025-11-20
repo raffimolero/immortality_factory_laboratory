@@ -1,3 +1,5 @@
+use crate::immortality_factory::structure::Size;
+
 use super::*;
 
 pub trait Entity: Sized {
@@ -68,33 +70,51 @@ impl PastedWorld {
     }
 }
 
-impl World {
-    pub fn paste(&mut self, blueprint: &Self, x: i32, y: i32) -> PastedWorld {
-        let base_index = self.structures.len();
+impl Entity for PastedWorld {
+    fn get_world_id(&self) -> WorldId {
+        self.host_id
+    }
+
+    // i hope this works
+    fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
+        Self {
+            blueprint_id: self.blueprint_id,
+            host_id: pasted_world.host_id,
+            base_index: self.base_index + pasted_world.base_index,
+            offset: self.offset + pasted_world.offset,
+        }
+    }
+}
+
+impl Placeable for &World {
+    type Id = PastedWorld;
+
+    fn place_in(self, world: &mut World, x: i32, y: i32) -> PastedWorld {
+        let base_index = world.structures.len();
         let offset = Offset { x, y };
-        self.structures.extend(
-            blueprint
-                .structures
+        world.structures.extend(
+            self.structures
                 .iter()
                 .cloned()
                 .map(|structure| structure + offset),
         );
         // TODO: collision detection
-        self.connections.extend(
-            blueprint
-                .connections
+        world.connections.extend(
+            self.connections
                 .iter()
                 .copied()
                 .map(|connection| connection + offset),
         );
         PastedWorld {
-            blueprint_id: blueprint.world_id,
-            host_id: self.world_id,
+            blueprint_id: self.world_id,
+            host_id: world.world_id,
             base_index,
             offset,
         }
     }
+}
 
+impl World {
     /// for hardcore users
     pub fn stack_iter(
         &mut self,
@@ -107,7 +127,7 @@ impl World {
     ) -> impl Iterator<Item = PastedWorld> {
         let delta = Offset { x: dx, y: dy };
         (0..count).scan(Position { x, y }, move |pos, _| {
-            let building = self.paste(blueprint, pos.x, pos.y);
+            let building = self.place(blueprint, pos.x, pos.y);
             *pos = *pos + delta;
             Some(building)
         })
@@ -123,5 +143,68 @@ impl World {
         count: usize,
     ) -> Vec<PastedWorld> {
         self.stack_iter(blueprint, x, y, dx, dy, count).collect()
+    }
+}
+
+pub struct Blueprint {
+    pub contents: World,
+    pub size: Size,
+    pub inputs: Vec<PortIn>,
+    pub outputs: Vec<PortOut>,
+}
+
+impl Placeable for &Blueprint {
+    type Id = PastedBlueprint;
+
+    fn place_in(self, world: &mut World, x: i32, y: i32) -> Self::Id {
+        let world = self.contents.place_in(world, x, y);
+        PastedBlueprint {
+            world,
+            size: self.size,
+            inputs: self
+                .inputs
+                .iter()
+                .copied()
+                .map(|p| p.inside(&world))
+                .collect(),
+            outputs: self
+                .outputs
+                .iter()
+                .copied()
+                .map(|p| p.inside(&world))
+                .collect(),
+        }
+    }
+}
+
+pub struct PastedBlueprint {
+    world: PastedWorld,
+    pub size: Size,
+    pub inputs: Vec<PortIn>,
+    pub outputs: Vec<PortOut>,
+}
+
+impl Entity for PastedBlueprint {
+    fn get_world_id(&self) -> WorldId {
+        self.world.get_world_id()
+    }
+
+    fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
+        Self {
+            world: self.world._map_inside(pasted_world),
+            size: self.size,
+            inputs: self
+                .inputs
+                .iter()
+                .copied()
+                .map(|p| p._map_inside(pasted_world))
+                .collect(),
+            outputs: self
+                .outputs
+                .iter()
+                .copied()
+                .map(|p| p._map_inside(pasted_world))
+                .collect(),
+        }
     }
 }
