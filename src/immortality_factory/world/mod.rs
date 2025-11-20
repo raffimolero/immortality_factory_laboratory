@@ -191,7 +191,7 @@ pub struct World {
 }
 
 pub trait Placeable {
-    type Id: Entity;
+    type Id;
 
     fn place_in(self, world: &mut World, x: i32, y: i32) -> Self::Id;
 }

@@ -70,21 +70,21 @@ impl PastedWorld {
     }
 }
 
-impl Entity for PastedWorld {
-    fn get_world_id(&self) -> WorldId {
-        self.host_id
-    }
+// impl Entity for PastedWorld {
+//     fn get_world_id(&self) -> WorldId {
+//         self.host_id
+//     }
 
-    // i hope this works
-    fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
-        Self {
-            blueprint_id: self.blueprint_id,
-            host_id: pasted_world.host_id,
-            base_index: self.base_index + pasted_world.base_index,
-            offset: self.offset + pasted_world.offset,
-        }
-    }
-}
+//     // i hope this works
+//     fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
+//         Self {
+//             blueprint_id: self.blueprint_id,
+//             host_id: pasted_world.host_id,
+//             base_index: self.base_index + pasted_world.base_index,
+//             offset: self.offset + pasted_world.offset,
+//         }
+//     }
+// }
 
 impl Placeable for &World {
     type Id = PastedWorld;
@@ -213,27 +213,27 @@ impl PastedBlueprint {
     }
 }
 
-impl Entity for PastedBlueprint {
-    fn get_world_id(&self) -> WorldId {
-        self.world.get_world_id()
-    }
+// impl Entity for PastedBlueprint {
+//     fn get_world_id(&self) -> WorldId {
+//         self.world.get_world_id()
+//     }
 
-    fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
-        Self {
-            world: self.world._map_inside(pasted_world),
-            size: self.size,
-            inputs: self
-                .inputs
-                .iter()
-                .copied()
-                .map(|p| p._map_inside(pasted_world))
-                .collect(),
-            outputs: self
-                .outputs
-                .iter()
-                .copied()
-                .map(|p| p._map_inside(pasted_world))
-                .collect(),
-        }
-    }
-}
+//     fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
+//         Self {
+//             world: self.world._map_inside(pasted_world),
+//             size: self.size,
+//             inputs: self
+//                 .inputs
+//                 .iter()
+//                 .copied()
+//                 .map(|p| p._map_inside(pasted_world))
+//                 .collect(),
+//             outputs: self
+//                 .outputs
+//                 .iter()
+//                 .copied()
+//                 .map(|p| p._map_inside(pasted_world))
+//                 .collect(),
+//         }
+//     }
+// }
