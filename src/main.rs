@@ -47,33 +47,31 @@ fn mana_stack(merge_y: i32) -> Blueprint {
         }
     };
 
-    let refinery_column = {
-        let mut bp = World::new();
-        let merge = bp.place(BigMerger, 8, merge_y);
-        for i in 0..4 {
-            let mr = bp.place(&mana_refinery, 0, (i as i32) * mana_refinery.height());
-            bp.connect(mr.output(0), merge.input(i + 1))
-        }
-        Blueprint {
-            contents: bp,
-            size: Size { w: 9, h: 8 },
-            inputs: vec![merge.input(0)],
-            outputs: vec![merge.output(0)],
-        }
-    };
-
     let refinery_stack = {
         let mut bp = World::new();
-        let a = bp.place(&refinery_column, 0, 0);
-        let b = bp.place(&refinery_column, 9, 0);
-        let c = bp.place(&refinery_column, 18, 0);
-        bp.connect(a.output(0), b.input(0));
-        bp.connect(b.output(0), c.input(0));
+        let mr_w = mana_refinery.width();
+        let mr_h = mana_refinery.height();
+
+        // make grid
+        let mut prev = None::<Structure>;
+        for grid_x in 0..3 {
+            let mr_x = grid_x as i32 * mr_w;
+            let merge = bp.place(BigMerger, mr_w * 3 + grid_x, merge_y);
+            for grid_y in 0..4 {
+                let mr_y = grid_y as i32 * mr_h;
+                let mr = bp.place(&mana_refinery, mr_x, mr_y);
+                bp.connect(mr.output(0), merge.input(grid_y + 1))
+            }
+            if let Some(prev) = prev {
+                bp.connect(prev.output(0), merge.input(0));
+            }
+            prev = Some(merge);
+        }
         Blueprint {
             contents: bp,
             size: Size { w: 27, h: 8 },
             inputs: vec![],
-            outputs: vec![c.output(0)],
+            outputs: vec![prev.unwrap().output(0)],
         }
     };
     refinery_stack
@@ -92,6 +90,7 @@ fn disharmonizer_stack() -> Blueprint {
         bp.connect(mana.output(0), split.input(0));
         x += split.width();
 
+        // every disharmonizer
         let mut outputs = Vec::with_capacity(16);
         let Size { w, h } = Disharmonizer.size();
         for (i, (dx, dy)) in [(0, 0), (w, 0), (0, h), (w, h)].into_iter().enumerate() {
@@ -100,6 +99,7 @@ fn disharmonizer_stack() -> Blueprint {
             outputs.extend((0..4).map(|i| dh.output(i)));
         }
         x += w * 2;
+
         Blueprint {
             contents: bp,
             size: Size { w: x, h: 8 },
@@ -115,14 +115,14 @@ fn disharmonizer_stack() -> Blueprint {
         let bot = bp.place(&disharm_half(2), 0, top.height());
 
         // place mergers in empty space
-        let mergers = [8, 17, 26, 27].map(|x| bp.place(Merger, x, 6));
+        let mergers = [24, 25, 26, 27].map(|x| bp.place(Merger, x, 6));
 
         // wire disharmonizers to mergers in a pattern
         // needs a bunch of math to compute
-        for i in 0..16 {
-            let merger = mergers[i / 4];
+        for i in 0..8 {
+            let merger = mergers[i / 2];
             let merger_input = i % 2;
-            let half = [&top, &bot][i / 8];
+            let half = [&top, &bot][i / 4];
             let output_per_disharm = 4;
             let curse_slot = 2;
             let disharm_output = (i % 4) * output_per_disharm + curse_slot;
