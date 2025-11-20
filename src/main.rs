@@ -1,7 +1,7 @@
 mod immortality_factory;
 
 use immortality_factory::prelude::*;
-use std::{array, fs, mem::discriminant};
+use std::fs;
 
 use crate::immortality_factory::structure::Size;
 
@@ -34,53 +34,62 @@ fn all_items() -> World {
 }
 
 fn stack(y: i32) -> Blueprint {
-    let (mana_refinery, mr_w, mr_h, mr_out) = {
+    let mana_refinery = {
         let mut bp = World::new();
         let pump = bp.place(AirPump, 0, 0);
         let refinery = bp.place(Refinery, 2, 0);
         bp.connect(pump.output(0), refinery.input(0));
-        (bp, 8, 2, refinery.output(0))
+        Blueprint {
+            contents: bp,
+            size: Size { w: 8, h: 2 },
+            inputs: vec![],
+            outputs: vec![refinery.output(0)],
+        }
     };
 
-    let mut col = World::new();
-    let merge = col.place(BigMerger, 8, y);
-    for i in 0..4 {
-        let mr = col.place(&mana_refinery, 0, (i as i32) * mr_h);
-        col.connect(mr.get(mr_out), merge.input(i + 1))
-    }
+    let refinery_column = {
+        let mut bp = World::new();
+        let merge = bp.place(BigMerger, 8, y);
+        for i in 0..4 {
+            let mr = bp.place(&mana_refinery, 0, (i as i32) * mana_refinery.h());
+            bp.connect(mr.output(0), merge.input(i + 1))
+        }
+        Blueprint {
+            contents: bp,
+            size: Size { w: 9, h: 8 },
+            inputs: vec![merge.input(0)],
+            outputs: vec![merge.output(0)],
+        }
+    };
 
-    let mut bp = World::new();
-    let a = bp.place(&col, 0, 0);
-    let b = bp.place(&col, 9, 0);
-    bp.connect(merge.inside(&a).output(0), merge.inside(&b).input(0));
-    let c = bp.place(&col, 18, 0);
-    bp.connect(merge.inside(&b).output(0), merge.inside(&c).input(0));
+    let refinery_stack = {
+        let mut bp = World::new();
+        let a = bp.place(&refinery_column, 0, 0);
+        let b = bp.place(&refinery_column, 9, 0);
+        bp.connect(a.output(0), b.input(0));
+        let c = bp.place(&refinery_column, 18, 0);
+        bp.connect(b.output(0), c.input(0));
 
-    Blueprint {
-        contents: bp,
-        size: Size { w: 27, h: 8 },
-        inputs: vec![],
-        outputs: vec![merge.inside(&c).output(0)],
-    }
+        Blueprint {
+            contents: bp,
+            size: Size { w: 27, h: 8 },
+            inputs: vec![],
+            outputs: vec![c.output(0)],
+        }
+    };
+    refinery_stack
 }
 
 fn main() {
-    // let (stack, st_w, st_h, st_outs) = {
-    //     let split = bp.place_structure(BigSplitter, 27, 2);
-    //     bp.connect(merge_top.inside(&c).output(0), split.input(0));
-    //     let disharm_outs: [[PortOut; 4]; 4] = array::from_fn(|i| {
-    //         let disharm = bp.place_structure(Disharmonizer, 28 + [0, 4, 4, 0][i], [0, 0, 4, 4][i]);
-    //         bp.connect(split.output(i + 1), disharm.input(0));
-    //         array::from_fn(|i| disharm.output(i))
-    //     });
-
-    //     (bp, 38, 8, disharm_outs)
-    // };
-
     let mut world = World::new();
     world.place(Laboratory, 0, -2);
     world.place(&all_items(), -100, -100);
-    world.place(&stack(0), 0, 0);
+
+    let top = world.place(&stack(0), 0, 0);
+    let bot = world.place(&stack(2), 0, 8);
+    let merger = world.place(BigMerger, top.w(), 0);
+    world.connect(top.output(0), merger.input(0));
+    world.connect(bot.output(0), merger.input(1));
 
     // let a = world.paste(&stack, 0, 0);
     // let b = world.paste(&stack, 0, st_h);

@@ -153,6 +153,16 @@ pub struct Blueprint {
     pub outputs: Vec<PortOut>,
 }
 
+impl Blueprint {
+    pub fn w(&self) -> i32 {
+        self.size.w
+    }
+
+    pub fn h(&self) -> i32 {
+        self.size.h
+    }
+}
+
 impl Placeable for &Blueprint {
     type Id = PastedBlueprint;
 
@@ -179,9 +189,28 @@ impl Placeable for &Blueprint {
 
 pub struct PastedBlueprint {
     world: PastedWorld,
-    pub size: Size,
-    pub inputs: Vec<PortIn>,
-    pub outputs: Vec<PortOut>,
+    size: Size,
+    inputs: Vec<PortIn>,
+    outputs: Vec<PortOut>,
+}
+
+// convenience methods for uniformity
+impl PastedBlueprint {
+    pub fn w(&self) -> i32 {
+        self.size.w
+    }
+
+    pub fn h(&self) -> i32 {
+        self.size.h
+    }
+
+    pub fn input(&self, index: usize) -> PortIn {
+        self.inputs[index]
+    }
+
+    pub fn output(&self, index: usize) -> PortOut {
+        self.outputs[index]
+    }
 }
 
 impl Entity for PastedBlueprint {
