@@ -1,4 +1,8 @@
-use super::{item::Item, world::Offset};
+use super::{
+    item::Item,
+    world::{HasSize, Offset},
+};
+
 use std::{
     fmt::{self, Write},
     ops::Add,
@@ -248,25 +252,6 @@ pub enum StructureKind {
 }
 
 impl StructureKind {
-    pub fn size(&self) -> Size {
-        match self {
-            Self::AirPump => Size { w: 2, h: 2 },
-            Self::Refinery => Size { w: 6, h: 2 },
-            Self::Disharmonizer => Size { w: 4, h: 4 },
-            Self::Unifier => Size { w: 4, h: 5 },
-            Self::SubdimensionalMarket => Size { w: 4, h: 5 },
-            Self::Splitter => Size { w: 1, h: 3 },
-            Self::Merger => Size { w: 1, h: 3 },
-            Self::StorageVault => Size { w: 5, h: 2 },
-            Self::AbysalDoor => Size { w: 4, h: 1 },
-            Self::SingleStorage => Size { w: 1, h: 1 },
-            Self::Laboratory => Size { w: 5, h: 2 },
-            Self::RitualInfuser => Size { w: 5, h: 5 },
-            Self::BigMerger => Size { w: 1, h: 6 },
-            Self::BigSplitter => Size { w: 1, h: 6 },
-        }
-    }
-
     /// i have no idea what this number means
     fn object_number(&self) -> u8 {
         match self {
@@ -449,6 +434,27 @@ impl From<StructureKind> for StructureData {
                 input: Empty,
                 outputs: [Empty; 5],
             },
+        }
+    }
+}
+
+impl HasSize for StructureKind {
+    fn size(&self) -> Size {
+        match self {
+            Self::AirPump => Size { w: 2, h: 2 },
+            Self::Refinery => Size { w: 6, h: 2 },
+            Self::Disharmonizer => Size { w: 4, h: 4 },
+            Self::Unifier => Size { w: 4, h: 5 },
+            Self::SubdimensionalMarket => Size { w: 4, h: 5 },
+            Self::Splitter => Size { w: 1, h: 3 },
+            Self::Merger => Size { w: 1, h: 3 },
+            Self::StorageVault => Size { w: 5, h: 2 },
+            Self::AbysalDoor => Size { w: 4, h: 1 },
+            Self::SingleStorage => Size { w: 1, h: 1 },
+            Self::Laboratory => Size { w: 5, h: 2 },
+            Self::RitualInfuser => Size { w: 5, h: 5 },
+            Self::BigMerger => Size { w: 1, h: 6 },
+            Self::BigSplitter => Size { w: 1, h: 6 },
         }
     }
 }

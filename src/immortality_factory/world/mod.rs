@@ -1,13 +1,12 @@
 pub mod blueprint;
 
-use blueprint::Entity;
 use std::{
     fmt::{self, Write},
     ops::Add,
     sync::Mutex,
 };
 
-use super::structure::{StructureData, StructureKind};
+use super::structure::{Size, StructureData, StructureKind};
 
 type ID = u32;
 static WORLD_COUNT: Mutex<ID> = Mutex::new(0);
@@ -135,6 +134,12 @@ pub struct Structure {
     kind: StructureKind,
 }
 
+impl HasSize for Structure {
+    fn size(&self) -> Size {
+        self.kind.size()
+    }
+}
+
 impl Structure {
     pub fn input(self, port: usize) -> PortIn {
         let structure = &self.kind;
@@ -190,10 +195,28 @@ pub struct World {
     connections: Vec<DirectConnection>,
 }
 
+pub trait HasSize {
+    fn size(&self) -> Size;
+
+    fn width(&self) -> i32 {
+        self.size().w
+    }
+
+    fn height(&self) -> i32 {
+        self.size().h
+    }
+}
+
 pub trait Placeable {
     type Id;
 
     fn place_in(self, world: &mut World, x: i32, y: i32) -> Self::Id;
+}
+
+impl HasSize for StructureData {
+    fn size(&self) -> Size {
+        self.kind().size()
+    }
 }
 
 impl Placeable for StructureData {

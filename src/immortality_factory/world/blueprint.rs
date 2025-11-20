@@ -1,5 +1,3 @@
-use crate::immortality_factory::structure::Size;
-
 use super::*;
 
 pub trait Entity: Sized {
@@ -153,13 +151,9 @@ pub struct Blueprint {
     pub outputs: Vec<PortOut>,
 }
 
-impl Blueprint {
-    pub fn w(&self) -> i32 {
-        self.size.w
-    }
-
-    pub fn h(&self) -> i32 {
-        self.size.h
+impl HasSize for Blueprint {
+    fn size(&self) -> Size {
+        self.size
     }
 }
 
@@ -194,16 +188,14 @@ pub struct PastedBlueprint {
     outputs: Vec<PortOut>,
 }
 
+impl HasSize for PastedBlueprint {
+    fn size(&self) -> Size {
+        self.size
+    }
+}
+
 // convenience methods for uniformity
 impl PastedBlueprint {
-    pub fn w(&self) -> i32 {
-        self.size.w
-    }
-
-    pub fn h(&self) -> i32 {
-        self.size.h
-    }
-
     pub fn input(&self, index: usize) -> PortIn {
         self.inputs[index]
     }
