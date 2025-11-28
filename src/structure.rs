@@ -413,7 +413,7 @@ impl HasSize for StructureKind {
             Self::AirPump => Size { w: 2, h: 2 },
             Self::Refinery => Size { w: 6, h: 2 },
             Self::Disharmonizer => Size { w: 4, h: 4 },
-            Self::Unifier => Size { w: 4, h: 5 },
+            Self::Unifier => Size { w: 3, h: 5 },
             Self::SubdimensionalMarket => Size { w: 4, h: 5 },
             Self::Splitter => Size { w: 1, h: 3 },
             Self::Merger => Size { w: 1, h: 3 },

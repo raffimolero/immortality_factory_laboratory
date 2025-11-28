@@ -1,5 +1,5 @@
 use immortality_factory_laboratory::prelude::*;
-use std::fs;
+use std::{array, fs};
 
 fn all_items() -> World {
     let mut row = World::new();
@@ -74,7 +74,7 @@ fn mana_stack(merge_y: i32) -> Blueprint {
 }
 
 fn disharmonizer_stack() -> Blueprint {
-    // outputs: disharm[0].0,1,2,3 ; disharm[1].0,1,2,3, ...disharm[3]
+    // outputs: [dust, dust, curse, silica] * 4
     let disharm_half = |merge_y| {
         let mut bp = World::new();
         let mut bp_w = 0;
@@ -104,6 +104,8 @@ fn disharmonizer_stack() -> Blueprint {
             outputs,
         }
     };
+    // inputs: [copper] * 4
+    // outputs: [dust, dust, silica] * 4 + [salt, blood] * 4
     let disharm_stack = {
         let mut bp = World::new();
         let mut inputs = vec![];
@@ -151,11 +153,19 @@ fn disharmonizer_stack() -> Blueprint {
         ]
         .map(|((dh_x, dh_y), (uf_x, uf_y))| {
             let dh = bp.place(Disharmonizer, bp_w + dh_x, dh_y);
-            let uf = bp.place(Unifier, bp_w + uf_x, uf_y);
+            let uf = bp.place(
+                StructureData::Unifier {
+                    inputs: [Empty, Empty, CopperCoin],
+                    output: Empty,
+                },
+                bp_w + uf_x,
+                uf_y,
+            );
             bp.connect(mergers[i].output(0), dh.input(0));
             bp.connect(dh.output(1), uf.input(0));
             bp.connect(dh.output(2), uf.input(1));
             inputs.push(uf.input(2)); // copper coin
+            outputs.push(dh.output(0)); // chaos salt
             outputs.push(uf.output(0)); // blood vial
             i += 1;
         });
@@ -174,19 +184,141 @@ fn disharmonizer_stack() -> Blueprint {
     disharm_stack
 }
 
+// outputs: [3.72x gold]/2s
 fn selling_facility() -> Blueprint {
     let selling_facility = {
         let mut bp = World::new();
         let dhs = bp.place(&disharmonizer_stack(), 0, 0);
 
+        let glooms: [PortOut; 4] = array::from_fn(|i| {
+            let i = i as i32;
+            let merge_x = (i % 2) * (Merger.width() * 3) + 40;
+            let merge_y = (i / 2) * Merger.height() + 5;
+            let merge0 = bp.place(Merger, merge_x, merge_y);
+            let merge1 = bp.place(Merger, merge_x + 1, merge_y);
+            let merge2 = bp.place(Merger, merge_x + 2, merge_y);
+            let ref_x = 46;
+            let ref_y = i * 4;
+            let ref0 = bp.place(Refinery, ref_x, ref_y);
+            let ref1 = bp.place(Refinery, ref_x, ref_y + 2);
+            let dhs_silica_idx = i as usize * 6 + 2;
+            let dhs_silica_out0 = dhs.output(dhs_silica_idx);
+            let dhs_silica_out1 = dhs.output(dhs_silica_idx + 3);
+            let dh_gloom = bp.place(Disharmonizer, 52, i * 4);
+            bp.connect(dhs_silica_out0, merge0.input(0));
+            bp.connect(dhs_silica_out1, merge0.input(1));
+            bp.connect(merge0.output(0), ref0.input(0));
+            bp.connect(merge1.output(0), ref1.input(0));
+            bp.connect(ref0.output(0), merge2.input(0));
+            bp.connect(ref1.output(0), merge2.input(1));
+            bp.connect(merge2.output(0), dh_gloom.input(0));
+            bp.connect(dh_gloom.output(1), merge1.input(0));
+            bp.connect(dh_gloom.output(2), merge1.input(1));
+            dh_gloom.output(0)
+        });
+
+        let coin_merges: [Structure; 6] = array::from_fn(|i| {
+            let merge_x = 56 + i as i32;
+            let merge_y = 5;
+            bp.place(BigMerger, merge_x, merge_y)
+        });
+        for i in 1..6 {
+            bp.connect(coin_merges[i - 1].output(0), coin_merges[i].input(0));
+        }
+
+        // sell dust
+        for i in 0..16 {
+            let sell_x = (i / 2) * SubdimensionalMarket.width();
+            let sell_y = (i % 2) * SubdimensionalMarket.height() + dhs.height();
+            let sell = bp.place(SubdimensionalMarket, sell_x, sell_y);
+            let dhs_dust_idx = (i as usize / 2) * 3 + (i as usize % 2);
+            bp.connect(dhs.output(dhs_dust_idx), sell.input(0));
+
+            let merge_struct_idx = i as usize / 4;
+            let merge_port_idx = i as usize % 4 + 1;
+            bp.connect(
+                sell.output(0),
+                coin_merges[merge_struct_idx].input(merge_port_idx),
+            );
+        }
+
+        // sell salt
+        for i in 0..2 {
+            let sell_x = (i / 2 + 8) * SubdimensionalMarket.width();
+            let sell_y = (i % 2) * SubdimensionalMarket.height() + dhs.height();
+            let sell = bp.place(SubdimensionalMarket, sell_x, sell_y);
+            let dhs_salt_idx = 3 * 8 + (2 * (i as usize * 2 + 1));
+            bp.connect(dhs.output(dhs_salt_idx), sell.input(0));
+
+            let merge_struct_idx = 4;
+            let merge_port_idx = i as usize % 4 + 1;
+            bp.connect(
+                sell.output(0),
+                coin_merges[merge_struct_idx].input(merge_port_idx),
+            );
+        }
+
+        // sell blood
+        for i in 0..4 {
+            let sell_x = (i / 2 + 9) * SubdimensionalMarket.width();
+            let sell_y = (i % 2) * SubdimensionalMarket.height() + dhs.height();
+            let sell = bp.place(SubdimensionalMarket, sell_x, sell_y);
+            let dhs_blood_idx = 3 * 8 + (1) + (i as usize * 2);
+            bp.connect(dhs.output(dhs_blood_idx), sell.input(0));
+            bp.connect(sell.output(2), dhs.input(i as usize));
+
+            let merge_struct_idx = 5;
+            let merge_port_idx = i as usize % 4 + 1;
+            bp.connect(
+                sell.output(0),
+                coin_merges[merge_struct_idx].input(merge_port_idx),
+            );
+        }
+
+        // unify and sell orb
+        for i in 0..2 {
+            // unify
+            let uf_x = 56;
+            let uf_y = i * 11;
+            let uf_bright = bp.place(
+                StructureData::Unifier {
+                    inputs: [Empty, SilverCoin, Empty],
+                    output: Empty,
+                },
+                uf_x,
+                uf_y,
+            );
+            let uf_orb = bp.place(Unifier, uf_x + Unifier.width(), uf_y);
+            let gloom_idx = i as usize * 2;
+            let dhs_salt_idx = 3 * 8 + (2 * (i as usize * 2));
+            bp.connect(glooms[gloom_idx + 1], uf_bright.input(0));
+            bp.connect(glooms[gloom_idx], uf_orb.input(0));
+            bp.connect(uf_bright.output(0), uf_orb.input(1));
+            bp.connect(dhs.output(dhs_salt_idx), uf_orb.input(2));
+
+            // sell
+            let sell_x = (i / 2 + 11) * SubdimensionalMarket.width();
+            let sell_y = (i % 2) * SubdimensionalMarket.height() + dhs.height();
+            let sell = bp.place(SubdimensionalMarket, sell_x, sell_y);
+            bp.connect(uf_orb.output(0), sell.input(0));
+            bp.connect(sell.output(1), uf_bright.input(1));
+
+            let merge_struct_idx = 4;
+            let merge_port_idx = i as usize % 4 + 3;
+            bp.connect(
+                sell.output(0),
+                coin_merges[merge_struct_idx].input(merge_port_idx),
+            );
+        }
+
         Blueprint {
             contents: bp,
             size: Size {
-                w: -1,
-                h: dhs.height(),
+                w: 62,
+                h: dhs.height() + SubdimensionalMarket.height() * 2,
             },
             inputs: vec![],
-            outputs: vec![],
+            outputs: vec![coin_merges[5].output(0)],
         }
     };
     selling_facility
@@ -194,14 +326,10 @@ fn selling_facility() -> Blueprint {
 
 fn stuff() -> World {
     let mut world = World::new();
-    // let top = world.place(&mana_stack(0), 0, 0);
-    // let bot = world.place(&mana_stack(2), 0, 8);
-    // let merger = world.place(BigMerger, top.width(), 0);
-    // world.connect(top.output(0), merger.input(0));
-    // world.connect(bot.output(0), merger.input(1));
     let st = selling_facility();
     world.place(&st, 0, 0);
-    // world.place(&st, 0, st.height());
+    world.place(&st, 0, st.height());
+    world.place(&st, st.width(), 0);
     world
 }
 
