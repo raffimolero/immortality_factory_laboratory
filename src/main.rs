@@ -29,6 +29,34 @@ fn all_items() -> World {
     grid
 }
 
+fn storage_vault(count: usize, rows: usize) -> Blueprint {
+    let mut bp = World::new();
+    let mut inputs = vec![];
+    let mut outputs = vec![];
+    for i in 0..count {
+        let cur = bp.place(
+            StorageVault,
+            (i / rows) as i32 * StorageVault.width(),
+            (i % rows) as i32 * StorageVault.height(),
+        );
+        if let Some(prev) = outputs.pop() {
+            bp.connect(prev, cur.input(0));
+        } else {
+            inputs.push(cur.input(0));
+        }
+        outputs.push(cur.output(0));
+    }
+    Blueprint {
+        contents: bp,
+        size: Size {
+            w: StorageVault.width(),
+            h: StorageVault.height() * count as i32,
+        },
+        inputs,
+        outputs,
+    }
+}
+
 fn mana_stack(merge_y: i32) -> Blueprint {
     let mana_refinery = {
         let mut bp = World::new();
@@ -326,10 +354,9 @@ fn selling_facility() -> Blueprint {
 
 fn stuff() -> World {
     let mut world = World::new();
-    let st = selling_facility();
-    world.place(&st, 0, 0);
-    world.place(&st, 0, st.height());
-    world.place(&st, st.width(), 0);
+    let sf = world.place(&selling_facility(), 0, 0);
+    let sv = world.place(&storage_vault(64, 4), 0, sf.height());
+    world.connect(sf.output(0), sv.input(0));
     world
 }
 
