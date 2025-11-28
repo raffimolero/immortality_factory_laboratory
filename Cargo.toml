@@ -1,6 +1,12 @@
 [package]
-name = "immortal"
+name = "immortality_factory_laboratory"
 version = "0.1.0"
 edition = "2024"
+
+[lib]
+
+[[bin]]
+name = "immortality_factory_infuser"
+path = "src/main.rs"
 
 [dependencies]

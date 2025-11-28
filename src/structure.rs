@@ -1,12 +1,6 @@
-use super::{
-    item::Item,
-    world::{HasSize, Offset},
-};
+use crate::prelude::*;
 
-use std::{
-    fmt::{self, Write},
-    ops::Add,
-};
+use std::fmt::{self, Write};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConnectorData {

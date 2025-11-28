@@ -1,6 +1,4 @@
-mod immortality_factory;
-
-use immortality_factory::prelude::*;
+use immortality_factory_laboratory::prelude::*;
 use std::fs;
 
 fn all_items() -> World {
@@ -76,6 +74,7 @@ fn mana_stack(merge_y: i32) -> Blueprint {
 }
 
 fn disharmonizer_stack() -> Blueprint {
+    // outputs: disharm[0].0,1,2,3 ; disharm[1].0,1,2,3, ...disharm[3]
     let disharm_half = |merge_y| {
         let mut bp = World::new();
         let mut bp_w = 0;
@@ -107,6 +106,9 @@ fn disharmonizer_stack() -> Blueprint {
     };
     let disharm_stack = {
         let mut bp = World::new();
+        let mut inputs = vec![];
+        let mut outputs = vec![];
+
         // track the current width of the machine
         let mut bp_w = 0;
 
@@ -114,6 +116,13 @@ fn disharmonizer_stack() -> Blueprint {
         let top = bp.place(&disharm_half(0), 0, 0);
         let bot = bp.place(&disharm_half(2), 0, top.height());
         bp_w += top.width();
+        for dhs in [&top, &bot] {
+            for i in 0..4 {
+                outputs.push(dhs.output(i * 4 + 0)); // mana dust
+                outputs.push(dhs.output(i * 4 + 1)); // mana dust
+                outputs.push(dhs.output(i * 4 + 3)); // silica powder
+            }
+        }
 
         // place mergers in empty space
         let mergers = [24, 25, 26, 27].map(|x| bp.place(Merger, x, 6));
@@ -146,6 +155,8 @@ fn disharmonizer_stack() -> Blueprint {
             bp.connect(mergers[i].output(0), dh.input(0));
             bp.connect(dh.output(1), uf.input(0));
             bp.connect(dh.output(2), uf.input(1));
+            inputs.push(uf.input(2)); // copper coin
+            outputs.push(uf.output(0)); // blood vial
             i += 1;
         });
         bp_w += w * 3;
@@ -156,11 +167,29 @@ fn disharmonizer_stack() -> Blueprint {
                 w: bp_w,
                 h: top.height() * 2,
             },
+            inputs,
+            outputs,
+        }
+    };
+    disharm_stack
+}
+
+fn selling_facility() -> Blueprint {
+    let selling_facility = {
+        let mut bp = World::new();
+        let dhs = bp.place(&disharmonizer_stack(), 0, 0);
+
+        Blueprint {
+            contents: bp,
+            size: Size {
+                w: -1,
+                h: dhs.height(),
+            },
             inputs: vec![],
             outputs: vec![],
         }
     };
-    disharm_stack
+    selling_facility
 }
 
 fn stuff() -> World {
@@ -170,8 +199,9 @@ fn stuff() -> World {
     // let merger = world.place(BigMerger, top.width(), 0);
     // world.connect(top.output(0), merger.input(0));
     // world.connect(bot.output(0), merger.input(1));
-    let st = disharmonizer_stack();
+    let st = selling_facility();
     world.place(&st, 0, 0);
+    // world.place(&st, 0, st.height());
     world
 }
 

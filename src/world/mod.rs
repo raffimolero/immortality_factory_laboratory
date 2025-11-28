@@ -7,7 +7,8 @@ use std::{
     sync::Mutex,
 };
 
-use super::structure::{StructureData, StructureKind};
+use crate::prelude::*;
+// use super::structure::{StructureData, StructureKind};
 
 type ID = NonZeroU32;
 static WORLD_COUNT: Mutex<ID> = Mutex::new(NonZeroU32::new(1).unwrap());
