@@ -316,7 +316,14 @@ fn selling_facility() -> Blueprint {
                 uf_x,
                 uf_y,
             );
-            let uf_orb = bp.place(Unifier, uf_x + Unifier.width(), uf_y);
+            let uf_orb = bp.place(
+                StructureData::Unifier {
+                    inputs: [GloomShard, BrightShard, Empty],
+                    output: Empty,
+                },
+                uf_x + Unifier.width(),
+                uf_y,
+            );
             let gloom_idx = i as usize * 2;
             let dhs_salt_idx = 3 * 8 + (2 * (i as usize * 2));
             bp.connect(glooms[gloom_idx + 1], uf_bright.input(0));
