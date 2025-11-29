@@ -1,7 +1,7 @@
 pub mod blueprint;
 
 use std::{
-    fmt::{self, Write},
+    io::{self, Write},
     num::NonZeroU32,
     ops::Add,
     sync::Mutex,
@@ -114,7 +114,7 @@ struct DirectConnection {
 }
 
 impl DirectConnection {
-    fn export(&self, f: &mut impl Write, id: usize) -> fmt::Result {
+    fn export(&self, f: &mut impl Write, id: usize) -> io::Result<()> {
         let (x1, y1) = self.src.world_coords();
         let (x2, y2) = self.dst.world_coords();
         writeln!(
@@ -192,13 +192,6 @@ pub struct PortOut {
     offset: Offset,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct World {
-    world_id: WorldId,
-    structures: Vec<PositionedStructureData>,
-    connections: Vec<DirectConnection>,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Size {
     pub w: i32,
@@ -273,6 +266,13 @@ impl Placeable for StructureKind {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct World {
+    world_id: WorldId,
+    structures: Vec<PositionedStructureData>,
+    connections: Vec<DirectConnection>,
+}
+
 impl World {
     pub fn new() -> Self {
         Self {
@@ -310,7 +310,7 @@ impl World {
         self.connections.push(connection);
     }
 
-    pub fn export(&self, f: &mut impl Write) -> fmt::Result {
+    pub fn export(&self, f: &mut impl Write) -> io::Result<()> {
         writeln!(
             f,
             r#"[Intro]

@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-use std::fmt::{self, Write};
+use std::io::{self, Write};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConnectorData {
@@ -85,12 +85,12 @@ impl StructureData {
         id: usize,
         item_index: usize,
         item: Item,
-    ) -> fmt::Result {
+    ) -> io::Result<()> {
         let item_id = item as i8;
         writeln!(f, "{id}-storage_load_at {item_index}=\"{item_id}.000000\"")
     }
 
-    pub fn export(&self, f: &mut impl Write, id: usize, raw_x: i32, raw_y: i32) -> fmt::Result {
+    pub fn export(&self, f: &mut impl Write, id: usize, raw_x: i32, raw_y: i32) -> io::Result<()> {
         let world_y = raw_y * 22;
         let world_x = raw_x * 22;
         let obj_num = self.kind().object_number();
@@ -105,7 +105,7 @@ impl StructureData {
         Ok(())
     }
 
-    fn export_struct(&self, f: &mut impl Write, id: usize) -> fmt::Result {
+    fn export_struct(&self, f: &mut impl Write, id: usize) -> io::Result<()> {
         match *self {
             Self::AirPump { output } => writeln!(
                 f,

@@ -1,5 +1,9 @@
 use immortality_factory_laboratory::prelude::*;
-use std::{array, fs};
+use std::{
+    array,
+    fs::File,
+    io::{BufWriter, Write},
+};
 
 fn all_items() -> World {
     let mut row = World::new();
@@ -345,10 +349,10 @@ fn main() {
     world.place(&all_items(), -100, -100);
     world.place(&stuff(), 0, 0);
 
-    // let a = world.paste(&stack, 0, 0);
-    // let b = world.paste(&stack, 0, st_h);
-
-    let mut out = String::new();
-    world.export(&mut out).expect("write failed");
-    fs::write("../save.ini", out).expect("Failed to create file.");
+    let file = File::create("../save.ini").expect("Failed to create file.");
+    let mut writer = BufWriter::new(file);
+    world
+        .export(&mut writer)
+        .and_then(|()| writer.flush()) // docs told me to flush it manually instead of relying on Drop
+        .expect("Failed to write to file.");
 }
