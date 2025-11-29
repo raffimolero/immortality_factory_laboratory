@@ -101,6 +101,9 @@ fn mana_stack(merge_y: i32) -> Blueprint {
     refinery_stack
 }
 
+/// inputs: [copper] * 4
+///
+/// outputs: [dust, dust, silica] * 4 + [salt, blood] * 4
 fn disharmonizer_stack() -> Blueprint {
     // outputs: [dust, dust, curse, silica] * 4
     let disharm_half = |merge_y| {
@@ -172,14 +175,15 @@ fn disharmonizer_stack() -> Blueprint {
 
         // make curse disharmonizers and blood unifiers
         let Size { w, h } = Disharmonizer.size();
-        let mut i = 0;
-        let c_dh = [
+        for (i, ((dh_x, dh_y), (uf_x, uf_y))) in [
             ((0, h * 0), (w, 0)),
             ((0, h * 1), (w + 3, 0)),
             ((0, h * 2), (w, h * 3 - 1)),
             ((0, h * 3), (w + 3, h * 3 - 1)),
         ]
-        .map(|((dh_x, dh_y), (uf_x, uf_y))| {
+        .into_iter()
+        .enumerate()
+        {
             let dh = bp.place(Disharmonizer, bp_w + dh_x, dh_y);
             let uf = bp.place(
                 StructureData::Unifier {
@@ -195,8 +199,7 @@ fn disharmonizer_stack() -> Blueprint {
             inputs.push(uf.input(2)); // copper coin
             outputs.push(dh.output(0)); // chaos salt
             outputs.push(uf.output(0)); // blood vial
-            i += 1;
-        });
+        }
         bp_w += w * 3;
 
         Blueprint {
@@ -212,9 +215,11 @@ fn disharmonizer_stack() -> Blueprint {
     disharm_stack
 }
 
-// outputs: [3.72x gold]/2s
-fn selling_facility() -> Blueprint {
-    let selling_facility = {
+/// inputs: [gold]
+///
+/// outputs: [3.72x gold]/2s
+fn gold_factory() -> Blueprint {
+    let gold_factory = {
         let mut bp = World::new();
         let dhs = bp.place(&disharmonizer_stack(), 0, 0);
 
@@ -352,16 +357,16 @@ fn selling_facility() -> Blueprint {
                 w: 62,
                 h: dhs.height() + SubdimensionalMarket.height() * 2,
             },
-            inputs: vec![],
+            inputs: vec![coin_merges[0].input(0)],
             outputs: vec![coin_merges[5].output(0)],
         }
     };
-    selling_facility
+    gold_factory
 }
 
 fn stuff() -> World {
     let mut world = World::new();
-    let sf = world.place(&selling_facility(), 0, 0);
+    let sf = world.place(&gold_factory(), 0, 0);
     let sv = world.place(&storage_vault(64, 4), 0, sf.height());
     world.connect(sf.output(0), sv.input(0));
     world
