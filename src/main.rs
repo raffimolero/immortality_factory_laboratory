@@ -190,15 +190,22 @@ fn gold_factory() -> Blueprint {
             let dhs_silica_idx = i as usize * 6 + 2;
             let dhs_silica_out0 = dhs.output(dhs_silica_idx);
             let dhs_silica_out1 = dhs.output(dhs_silica_idx + 3);
-            let dh_gloom = bp.place(Disharmonizer, 52, i * 4);
+            let dh_gloom = bp.place(
+                StructureData::Disharmonizer {
+                    input: Empty,
+                    outputs: [GloomShard, Empty, Empty, Empty],
+                },
+                52,
+                i * 4,
+            );
             bp.connect(dhs_silica_out0, merge0.input(0));
-            bp.connect(dhs_silica_out1, merge0.input(1));
+            bp.connect(dhs_silica_out1, merge1.input(0));
             bp.connect(merge0.output(0), ref0.input(0));
             bp.connect(merge1.output(0), ref1.input(0));
             bp.connect(ref0.output(0), merge2.input(0));
             bp.connect(ref1.output(0), merge2.input(1));
             bp.connect(merge2.output(0), dh_gloom.input(0));
-            bp.connect(dh_gloom.output(1), merge1.input(0));
+            bp.connect(dh_gloom.output(1), merge0.input(1));
             bp.connect(dh_gloom.output(2), merge1.input(1));
             dh_gloom.output(0)
         });
@@ -272,7 +279,14 @@ fn gold_factory() -> Blueprint {
             // unify
             let uf_x = 56;
             let uf_y = i * 11;
-            let uf_bright = bp.place(Unifier, uf_x, uf_y);
+            let uf_bright = bp.place(
+                StructureData::Unifier {
+                    inputs: [Empty, SilverCoin, Empty],
+                    output: BrightShard,
+                },
+                uf_x,
+                uf_y,
+            );
 
             let uf_orb = bp.place(
                 StructureData::Unifier {
