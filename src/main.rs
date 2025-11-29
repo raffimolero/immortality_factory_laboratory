@@ -57,50 +57,6 @@ fn storage_vault(count: usize, rows: usize) -> Blueprint {
     }
 }
 
-fn mana_stack(merge_y: i32) -> Blueprint {
-    let mana_refinery = {
-        let mut bp = World::new();
-        let pump = bp.place(AirPump, 0, 0);
-        let refinery = bp.place(Refinery, 2, 0);
-        bp.connect(pump.output(0), refinery.input(0));
-        Blueprint {
-            contents: bp,
-            size: Size { w: 8, h: 2 },
-            inputs: vec![],
-            outputs: vec![refinery.output(0)],
-        }
-    };
-
-    let refinery_stack = {
-        let mut bp = World::new();
-        let mr_w = mana_refinery.width();
-        let mr_h = mana_refinery.height();
-
-        // make grid
-        let mut prev = None::<Structure>;
-        for grid_x in 0..3 {
-            let mr_x = grid_x as i32 * mr_w;
-            let merge = bp.place(BigMerger, mr_w * 3 + grid_x, merge_y);
-            for grid_y in 0..4 {
-                let mr_y = grid_y as i32 * mr_h;
-                let mr = bp.place(&mana_refinery, mr_x, mr_y);
-                bp.connect(mr.output(0), merge.input(grid_y + 1))
-            }
-            if let Some(prev) = prev {
-                bp.connect(prev.output(0), merge.input(0));
-            }
-            prev = Some(merge);
-        }
-        Blueprint {
-            contents: bp,
-            size: Size { w: 27, h: 8 },
-            inputs: vec![],
-            outputs: vec![prev.unwrap().output(0)],
-        }
-    };
-    refinery_stack
-}
-
 /// inputs: [copper] * 4
 ///
 /// outputs: [dust, dust, silica] * 4 + [salt, blood] * 4
@@ -108,29 +64,32 @@ fn disharmonizer_stack() -> Blueprint {
     // outputs: [dust, dust, curse, silica] * 4
     let disharm_half = |merge_y| {
         let mut bp = World::new();
-        let mut bp_w = 0;
-        // refinery stacks
-        let mana = bp.place(&mana_stack(merge_y), bp_w, 0);
-        bp_w += mana.width();
 
-        // splitter
-        let split = bp.place(BigSplitter, bp_w, merge_y);
-        bp.connect(mana.output(0), split.input(0));
-        bp_w += split.width();
-
-        // mana disharmonizers
+        // mana disharmonizers and refinery stacks
         let mut outputs = Vec::with_capacity(16);
         let Size { w, h } = Disharmonizer.size();
         for (i, (dx, dy)) in [(0, 0), (w, 0), (0, h), (w, h)].into_iter().enumerate() {
-            let dh = bp.place(Disharmonizer, bp_w + dx, dy);
-            bp.connect(split.output(i + 1), dh.input(0));
+            let i = i as i32;
+            let merge_x = 24 + i;
+            let merge = bp.place(BigMerger, merge_x, merge_y);
+
+            let ref_y = i * 2;
+            for j in 0..3 {
+                let ref_x = j * 8;
+                let pump = bp.place(AirPump, ref_x, ref_y);
+                let refine = bp.place(Refinery, ref_x + 2, ref_y);
+                bp.connect(pump.output(0), refine.input(0));
+                bp.connect(refine.output(0), merge.input(j as usize));
+            }
+
+            let dh = bp.place(Disharmonizer, 28 + dx, dy);
+            bp.connect(merge.output(0), dh.input(0));
             outputs.extend((0..4).map(|i| dh.output(i)));
         }
-        bp_w += w * 2;
 
         Blueprint {
             contents: bp,
-            size: Size { w: bp_w, h: 8 },
+            size: Size { w: 36, h: 8 },
             inputs: vec![],
             outputs,
         }
@@ -185,14 +144,7 @@ fn disharmonizer_stack() -> Blueprint {
         .enumerate()
         {
             let dh = bp.place(Disharmonizer, bp_w + dh_x, dh_y);
-            let uf = bp.place(
-                StructureData::Unifier {
-                    inputs: [Empty, Empty, CopperCoin],
-                    output: Empty,
-                },
-                bp_w + uf_x,
-                uf_y,
-            );
+            let uf = bp.place(Unifier, bp_w + uf_x, uf_y);
             bp.connect(mergers[i].output(0), dh.input(0));
             bp.connect(dh.output(1), uf.input(0));
             bp.connect(dh.output(2), uf.input(1));
@@ -223,6 +175,7 @@ fn gold_factory() -> Blueprint {
         let mut bp = World::new();
         let dhs = bp.place(&disharmonizer_stack(), 0, 0);
 
+        // a lot of things
         let glooms: [PortOut; 4] = array::from_fn(|i| {
             let i = i as i32;
             let merge_x = (i % 2) * (Merger.width() * 3) + 40;
@@ -260,7 +213,8 @@ fn gold_factory() -> Blueprint {
         }
 
         // sell dust
-        for i in 0..16 {
+        let sells: [Structure; 16] = array::from_fn(|i| {
+            let i = i as i32;
             let sell_x = (i / 2) * SubdimensionalMarket.width();
             let sell_y = (i % 2) * SubdimensionalMarket.height() + dhs.height();
             let sell = bp.place(SubdimensionalMarket, sell_x, sell_y);
@@ -273,6 +227,12 @@ fn gold_factory() -> Blueprint {
                 sell.output(0),
                 coin_merges[merge_struct_idx].input(merge_port_idx),
             );
+
+            sell
+        });
+
+        for i in 0..4 {
+            bp.connect(sells[i].output(2), dhs.input(i));
         }
 
         // sell salt
@@ -298,7 +258,6 @@ fn gold_factory() -> Blueprint {
             let sell = bp.place(SubdimensionalMarket, sell_x, sell_y);
             let dhs_blood_idx = 3 * 8 + (1) + (i as usize * 2);
             bp.connect(dhs.output(dhs_blood_idx), sell.input(0));
-            bp.connect(sell.output(2), dhs.input(i as usize));
 
             let merge_struct_idx = 5;
             let merge_port_idx = i as usize % 4 + 1;
@@ -313,14 +272,8 @@ fn gold_factory() -> Blueprint {
             // unify
             let uf_x = 56;
             let uf_y = i * 11;
-            let uf_bright = bp.place(
-                StructureData::Unifier {
-                    inputs: [Empty, SilverCoin, Empty],
-                    output: Empty,
-                },
-                uf_x,
-                uf_y,
-            );
+            let uf_bright = bp.place(Unifier, uf_x, uf_y);
+
             let uf_orb = bp.place(
                 StructureData::Unifier {
                     inputs: [GloomShard, BrightShard, Empty],
@@ -367,7 +320,7 @@ fn gold_factory() -> Blueprint {
 fn stuff() -> World {
     let mut world = World::new();
     let sf = world.place(&gold_factory(), 0, 0);
-    let sv = world.place(&storage_vault(64, 4), 0, sf.height());
+    let sv = world.place(&storage_vault(8 * 4, 4), 0, sf.height());
     world.connect(sf.output(0), sv.input(0));
     world
 }

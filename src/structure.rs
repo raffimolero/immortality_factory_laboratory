@@ -8,7 +8,7 @@ pub struct ConnectorData {
     pub outputs: &'static [Offset],
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum StructureData {
     AirPump {
         output: Item,
