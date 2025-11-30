@@ -212,7 +212,7 @@ pub enum StructureKind {
     Splitter,
     Merger,
     StorageVault,
-    AbysalDoor,
+    AbysalDoor, // [sic]
     SingleStorage,
     Laboratory,
     RitualInfuser,

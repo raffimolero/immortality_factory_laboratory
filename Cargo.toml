@@ -5,8 +5,4 @@ edition = "2024"
 
 [lib]
 
-[[bin]]
-name = "immortality_factory_infuser"
-path = "src/main.rs"
-
 [dependencies]

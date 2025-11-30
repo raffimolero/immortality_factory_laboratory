@@ -3,7 +3,7 @@ pub mod blueprint;
 use std::{
     io::{self, Write},
     num::NonZeroU32,
-    ops::Add,
+    ops::{Add, Mul},
     sync::Mutex,
 };
 
@@ -213,6 +213,17 @@ impl Add<Self> for Size {
         Self {
             w: self.w + rhs.w,
             h: self.h + rhs.h,
+        }
+    }
+}
+
+impl Mul<Self> for Size {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self {
+            w: self.w * rhs.w,
+            h: self.h * rhs.h,
         }
     }
 }
