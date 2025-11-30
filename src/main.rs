@@ -218,12 +218,12 @@ fn gold_factory() -> Blueprint {
             dh_gloom.output(0)
         });
 
-        let coin_merges: [Structure; 6] = array::from_fn(|i| {
+        let merges_coin: [Structure; 6] = array::from_fn(|i| {
             let merge_x = 56 + i as i32;
             let merge_y = 5;
             bp.place(BigMerger, merge_x, merge_y)
         });
-        for w in coin_merges.windows(2) {
+        for w in merges_coin.windows(2) {
             bp.connect(w[0].output(0), w[1].input(0));
         }
 
@@ -240,7 +240,7 @@ fn gold_factory() -> Blueprint {
             let merge_port_idx = i as usize % 4 + 1;
             bp.connect(
                 sell.output(0),
-                coin_merges[merge_struct_idx].input(merge_port_idx),
+                merges_coin[merge_struct_idx].input(merge_port_idx),
             );
 
             sell
@@ -262,7 +262,7 @@ fn gold_factory() -> Blueprint {
             let merge_port_idx = i as usize % 4 + 1;
             bp.connect(
                 sell.output(0),
-                coin_merges[merge_struct_idx].input(merge_port_idx),
+                merges_coin[merge_struct_idx].input(merge_port_idx),
             );
         }
 
@@ -278,7 +278,7 @@ fn gold_factory() -> Blueprint {
             let merge_port_idx = i as usize % 4 + 1;
             bp.connect(
                 sell.output(0),
-                coin_merges[merge_struct_idx].input(merge_port_idx),
+                merges_coin[merge_struct_idx].input(merge_port_idx),
             );
         }
 
@@ -322,7 +322,7 @@ fn gold_factory() -> Blueprint {
             let merge_port_idx = i as usize % 4 + 3;
             bp.connect(
                 sell.output(0),
-                coin_merges[merge_struct_idx].input(merge_port_idx),
+                merges_coin[merge_struct_idx].input(merge_port_idx),
             );
         }
 
@@ -332,16 +332,16 @@ fn gold_factory() -> Blueprint {
                 w: 62,
                 h: dhs.height() + SubdimensionalMarket.height() * 2,
             },
-            inputs: vec![coin_merges[0].input(0)],
-            outputs: vec![coin_merges[5].output(0)],
+            inputs: vec![merges_coin[0].input(0)],
+            outputs: vec![merges_coin[5].output(0)],
         }
     };
     gold_factory
 }
 
-/// inputs: [gold, pure, pure]
+/// inputs: [gold, pure]
 ///
-/// outputs: [gold, spark, spark]
+/// outputs: [gold, spark]
 fn spark_factory() -> Blueprint {
     let spark_factory = {
         let mut bp = World::new();
@@ -364,8 +364,8 @@ fn spark_factory() -> Blueprint {
             let dhs_silica_out1 = dhs.output(dhs_silica_idx + 3);
             let dh_gloom = bp.place(
                 StructureData::Disharmonizer {
-                    input: Empty,
-                    outputs: [GloomShard, Empty, Empty, Empty],
+                    input: ObsidianPlate,
+                    outputs: [GloomShard, SilicaPowder, SilicaPowder, Empty],
                 },
                 52,
                 i * 4,
@@ -382,14 +382,16 @@ fn spark_factory() -> Blueprint {
             dh_gloom.output(0)
         });
 
-        let coin_merges: [Structure; 6] = array::from_fn(|i| {
+        let merges_coin: [Structure; 5] = array::from_fn(|i| {
             let merge_x = 56 + i as i32;
             let merge_y = 5;
             bp.place(BigMerger, merge_x, merge_y)
         });
-        for w in coin_merges[0..4].windows(2) {
+        for w in merges_coin[0..3].windows(2) {
             bp.connect(w[0].output(0), w[1].input(0));
         }
+        let split_pure = bp.place(Splitter, 61, 5);
+        let merge_spark = bp.place(Merger, 61, 8);
 
         // sell dust
         let sells: [Structure; 16] = array::from_fn(|i| {
@@ -400,17 +402,18 @@ fn spark_factory() -> Blueprint {
             let dhs_dust_idx = (i as usize / 2) * 3 + (i as usize % 2);
             bp.connect(dhs.output(dhs_dust_idx), sell.input(0));
 
-            let merge_struct_idx = i as usize / 4;
-            let merge_port_idx = i as usize % 4 + 1;
-            bp.connect(
-                sell.output(0),
-                coin_merges[merge_struct_idx].input(merge_port_idx),
-            );
-
             if i < 6 {
                 bp.connect(
                     sell.output(1),
-                    coin_merges[4 + (i as usize / 3)].input(4 - (i as usize % 3)),
+                    merges_coin[3 + (i as usize % 2)].input(4 - (i as usize / 2)),
+                );
+            } else {
+                let i = i - 6;
+                let merge_struct_idx = i as usize / 4;
+                let merge_port_idx = i as usize % 4 + 1;
+                bp.connect(
+                    sell.output(0),
+                    merges_coin[merge_struct_idx].input(merge_port_idx),
                 );
             }
 
@@ -420,9 +423,6 @@ fn spark_factory() -> Blueprint {
         for i in 0..4 {
             bp.connect(sells[i].output(2), dhs.input(i));
         }
-
-        let mut inputs = vec![coin_merges[0].input(0)];
-        let mut outputs = vec![coin_merges[3].output(0)];
 
         // unify orb and spark
         for i in 0..2 {
@@ -450,7 +450,7 @@ fn spark_factory() -> Blueprint {
                 let gloom_idx = i as usize * 2;
                 let dhs_salt_idx = 3 * 8 + (2 * (i as usize * 2));
                 bp.connect(glooms[gloom_idx + 1], uf_bright.input(0));
-                bp.connect(coin_merges[4 + i as usize].output(0), uf_bright.input(1));
+                bp.connect(merges_coin[3 + i as usize].output(0), uf_bright.input(1));
                 bp.connect(glooms[gloom_idx], uf_orb.input(0));
                 bp.connect(uf_bright.output(0), uf_orb.input(1));
                 bp.connect(dhs.output(dhs_salt_idx), uf_orb.input(2));
@@ -487,8 +487,8 @@ fn spark_factory() -> Blueprint {
                 bp.connect(life, uf_spark.input(2));
                 (uf_spark.input(0), uf_spark.output(0))
             };
-            inputs.push(pure);
-            outputs.push(spark);
+            bp.connect(split_pure.output(i as usize), pure);
+            bp.connect(spark, merge_spark.input(i as usize));
         }
 
         Blueprint {
@@ -497,43 +497,33 @@ fn spark_factory() -> Blueprint {
                 w: 62,
                 h: dhs.height() + SubdimensionalMarket.height() * 2,
             },
-            inputs,
-            outputs,
+            inputs: vec![merges_coin[0].input(0), split_pure.input(0)],
+            outputs: vec![merges_coin[2].output(0), merge_spark.output(0)],
         }
     };
     spark_factory
 }
 fn stuff() -> World {
     let mut world = World::new();
-    let pure_vault_count = 2;
-    let pure_vault_0 = world.place(
+    let pure_vault_count = 16;
+    let pure_vault = world.place(
         &storage_vault(pure_vault_count, pure_vault_count, PureManaGem),
         -StorageVault.width(),
         0,
     );
-    let pure_vault_1 = world.place(
-        &storage_vault(pure_vault_count, pure_vault_count, PureManaGem),
-        -StorageVault.width(),
-        StorageVault.height() * pure_vault_count as i32,
-    );
     let sf = world.place(&spark_factory(), 0, 0);
-    world.connect(pure_vault_0.output(0), sf.input(1));
-    world.connect(pure_vault_1.output(0), sf.input(2));
-    // let sf = world.place(&gold_factory(), 0, 0);
+    world.connect(pure_vault.output(0), sf.input(1));
     {
         let sv_gold = world.place(&storage_vault(8 * 4, 4, Empty), 0, sf.height());
         world.connect(sf.output(0), sv_gold.input(0));
     }
     {
-        let spark_merge = world.place(Merger, -1, sf.height() + StorageVault.height() * 4);
         let sv_spark = world.place(
             &storage_vault(8 * 4, 4, Empty),
             0,
             sf.height() + StorageVault.height() * 4,
         );
-        world.connect(sf.output(1), spark_merge.input(0));
-        world.connect(sf.output(2), spark_merge.input(1));
-        world.connect(spark_merge.output(0), sv_spark.input(0));
+        world.connect(sf.output(1), sv_spark.input(0));
     }
     world
 }
