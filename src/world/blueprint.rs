@@ -1,5 +1,10 @@
 use super::*;
 
+pub trait Machine {
+    fn input(&self, port: usize) -> PortIn;
+    fn output(&self, port: usize) -> PortOut;
+}
+
 pub trait Entity: Sized {
     fn get_world_id(&self) -> WorldId;
     fn _map_inside(&self, pasted_world: &PastedWorld) -> Self;
@@ -194,13 +199,12 @@ impl HasSize for PastedBlueprint {
     }
 }
 
-// convenience methods for uniformity
-impl PastedBlueprint {
-    pub fn input(&self, index: usize) -> PortIn {
+impl Machine for PastedBlueprint {
+    fn input(&self, index: usize) -> PortIn {
         self.inputs[index]
     }
 
-    pub fn output(&self, index: usize) -> PortOut {
+    fn output(&self, index: usize) -> PortOut {
         self.outputs[index]
     }
 }

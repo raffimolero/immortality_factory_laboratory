@@ -6,6 +6,6 @@ pub use crate::{
     },
     world::{
         HasSize, Offset, Placeable, PortIn, PortOut, Size, Structure, World,
-        blueprint::{Blueprint, Entity, PastedBlueprint, PastedWorld},
+        blueprint::{Blueprint, Entity, Machine, PastedBlueprint, PastedWorld},
     },
 };

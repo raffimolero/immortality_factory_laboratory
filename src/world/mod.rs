@@ -144,8 +144,8 @@ impl HasSize for Structure {
     }
 }
 
-impl Structure {
-    pub fn input(self, port: usize) -> PortIn {
+impl Machine for Structure {
+    fn input(&self, port: usize) -> PortIn {
         let structure = &self.kind;
         let offset = structure
             .connectors()
@@ -157,12 +157,12 @@ impl Structure {
                 panic!("Tried to get {structure:?} input port #{port}, does not exist.")
             });
         PortIn {
-            structure_id: self,
+            structure_id: *self,
             offset,
         }
     }
 
-    pub fn output(self, port: usize) -> PortOut {
+    fn output(&self, port: usize) -> PortOut {
         let structure = &self.kind;
         let offset = structure
             .connectors()
@@ -174,7 +174,7 @@ impl Structure {
                 panic!("Tried to get {structure:?} output port #{port}, does not exist.")
             });
         PortOut {
-            structure_id: self,
+            structure_id: *self,
             offset,
         }
     }
