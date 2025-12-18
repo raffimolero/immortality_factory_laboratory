@@ -92,7 +92,7 @@ impl PastedWorld {
 impl Placeable for &World {
     type Id = PastedWorld;
 
-    fn place_in(self, world: &mut World, x: i32, y: i32) -> PastedWorld {
+    fn place_in(self, world: &mut World, x: Coord, y: Coord) -> PastedWorld {
         let base_index = world.structures.len();
         let offset = Offset { x, y };
         world.structures.extend(
@@ -122,10 +122,10 @@ impl World {
     pub fn stack_iter(
         &mut self,
         blueprint: &Self,
-        x: i32,
-        y: i32,
-        dx: i32,
-        dy: i32,
+        x: Coord,
+        y: Coord,
+        dx: Coord,
+        dy: Coord,
         count: usize,
     ) -> impl Iterator<Item = PastedWorld> {
         let delta = Offset { x: dx, y: dy };
@@ -139,10 +139,10 @@ impl World {
     pub fn stack(
         &mut self,
         blueprint: &Self,
-        x: i32,
-        y: i32,
-        dx: i32,
-        dy: i32,
+        x: Coord,
+        y: Coord,
+        dx: Coord,
+        dy: Coord,
         count: usize,
     ) -> Vec<PastedWorld> {
         self.stack_iter(blueprint, x, y, dx, dy, count).collect()
@@ -165,7 +165,7 @@ impl HasSize for Blueprint {
 impl Placeable for &Blueprint {
     type Id = PastedBlueprint;
 
-    fn place_in(self, world: &mut World, x: i32, y: i32) -> Self::Id {
+    fn place_in(self, world: &mut World, x: Coord, y: Coord) -> Self::Id {
         let world = self.contents.place_in(world, x, y);
         PastedBlueprint {
             world,

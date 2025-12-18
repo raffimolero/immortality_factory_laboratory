@@ -31,28 +31,28 @@ pub struct WorldId {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Position {
-    pub x: i32,
-    pub y: i32,
+    pub x: Coord,
+    pub y: Coord,
 }
 
 impl Position {
-    fn world_x(&self) -> i32 {
+    fn world_x(&self) -> Coord {
         self.x * 22
     }
 
-    fn world_y(&self) -> i32 {
+    fn world_y(&self) -> Coord {
         self.y * 22
     }
 
-    fn world_coords(&self) -> (i32, i32) {
+    fn world_coords(&self) -> (Coord, Coord) {
         (self.world_x(), self.world_y())
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Offset {
-    pub x: i32,
-    pub y: i32,
+    pub x: Coord,
+    pub y: Coord,
 }
 
 impl Offset {
@@ -108,9 +108,9 @@ impl Add<Offset> for DirectConnection {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-struct DirectConnection {
-    src: Position,
-    dst: Position,
+pub struct DirectConnection {
+    pub src: Position,
+    pub dst: Position,
 }
 
 impl DirectConnection {
@@ -194,8 +194,8 @@ pub struct PortOut {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Size {
-    pub w: i32,
-    pub h: i32,
+    pub w: Coord,
+    pub h: Coord,
 }
 
 impl Size {
@@ -231,11 +231,11 @@ impl Mul<Self> for Size {
 pub trait HasSize {
     fn size(&self) -> Size;
 
-    fn width(&self) -> i32 {
+    fn width(&self) -> Coord {
         self.size().w
     }
 
-    fn height(&self) -> i32 {
+    fn height(&self) -> Coord {
         self.size().h
     }
 }
@@ -243,7 +243,7 @@ pub trait HasSize {
 pub trait Placeable {
     type Id;
 
-    fn place_in(self, world: &mut World, x: i32, y: i32) -> Self::Id;
+    fn place_in(self, world: &mut World, x: Coord, y: Coord) -> Self::Id;
 }
 
 impl HasSize for StructureData {
@@ -255,7 +255,7 @@ impl HasSize for StructureData {
 impl Placeable for StructureData {
     type Id = Structure;
 
-    fn place_in(self, world: &mut World, x: i32, y: i32) -> Self::Id {
+    fn place_in(self, world: &mut World, x: Coord, y: Coord) -> Self::Id {
         let id = Structure {
             world_id: world.world_id,
             index: world.structures.len(),
@@ -272,7 +272,7 @@ impl Placeable for StructureData {
 impl Placeable for StructureKind {
     type Id = Structure;
 
-    fn place_in(self, world: &mut World, x: i32, y: i32) -> Self::Id {
+    fn place_in(self, world: &mut World, x: Coord, y: Coord) -> Self::Id {
         StructureData::from(self).place_in(world, x, y)
     }
 }
@@ -280,8 +280,8 @@ impl Placeable for StructureKind {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct World {
     world_id: WorldId,
-    structures: Vec<PositionedStructureData>,
-    connections: Vec<DirectConnection>,
+    pub structures: Vec<PositionedStructureData>,
+    pub connections: Vec<DirectConnection>,
 }
 
 impl World {
@@ -294,7 +294,7 @@ impl World {
     }
 
     // TODO: collision detection
-    pub fn place<P: Placeable>(&mut self, object: P, x: i32, y: i32) -> P::Id {
+    pub fn place<P: Placeable>(&mut self, object: P, x: Coord, y: Coord) -> P::Id {
         object.place_in(self, x, y)
     }
 

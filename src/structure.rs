@@ -90,9 +90,15 @@ impl StructureData {
         writeln!(f, "{id}-storage_load_at {item_index}=\"{item_id}.000000\"")
     }
 
-    pub fn export(&self, f: &mut impl Write, id: usize, raw_x: i32, raw_y: i32) -> io::Result<()> {
-        let world_y = raw_y * 22;
-        let world_x = raw_x * 22;
+    pub fn export(
+        &self,
+        f: &mut impl Write,
+        id: usize,
+        raw_x: Coord,
+        raw_y: Coord,
+    ) -> io::Result<()> {
+        let world_y = raw_y as i32 * 22;
+        let world_x = raw_x as i32 * 22;
         let obj_num = self.kind().object_number();
 
         self.export_struct(f, id)?;
