@@ -95,13 +95,14 @@ impl Placeable for &World {
     fn place_in(self, world: &mut World, x: Coord, y: Coord) -> PastedWorld {
         let base_index = world.structures.len();
         let offset = Offset { x, y };
-        world.structures.extend(
-            self.structures
-                .iter()
-                .cloned()
-                .map(|structure| structure + offset),
-        );
-        // TODO: collision detection
+        for &structure in &self.structures {
+            let structure = structure + offset;
+            world.assert_no_structure_collision(&structure);
+            world.structures.push(structure);
+        }
+        // connections won't have collisions
+        // they can only connect to ports in their own world,
+        // which don't interact with the outside unless structures collide
         world.connections.extend(
             self.connections
                 .iter()

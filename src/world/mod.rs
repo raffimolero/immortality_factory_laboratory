@@ -124,7 +124,7 @@ impl DirectConnection {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PositionedStructureData {
     pub pos: Position,
     pub structure: StructureData,
@@ -261,10 +261,12 @@ impl Placeable for StructureData {
             index: world.structures.len(),
             kind: self.kind(),
         };
-        world.structures.push(PositionedStructureData {
+        let structure = PositionedStructureData {
             pos: Position { x, y },
             structure: self,
-        });
+        };
+        world.assert_no_structure_collision(&structure);
+        world.structures.push(structure);
         id
     }
 }
@@ -293,6 +295,31 @@ impl World {
         }
     }
 
+    // WARNING: Structure collision detection. O(n) time complexity.
+    // could, with difficulty, implement a chunk-based system.
+    // ideally with some sort of stack trace that traces a building's exact blueprint.
+    fn assert_no_structure_collision(&self, structure: &PositionedStructureData) {
+        let nl = structure.pos.x;
+        let nr = nl + structure.structure.width();
+        let nt = structure.pos.y;
+        let nb = nt + structure.structure.height();
+
+        for old in &self.structures {
+            let ol = old.pos.x;
+            let or = ol + old.structure.width();
+            let ot = old.pos.y;
+            let ob = ot + old.structure.height();
+
+            let collision = nb > ot && ob > nt && nr > ol && or > nl;
+            assert!(
+                !collision,
+                "Structure collision detected.\n\
+                - new: {structure:#?}\n\
+                - old: {old:#?}"
+            );
+        }
+    }
+
     // TODO: collision detection
     pub fn place<P: Placeable>(&mut self, object: P, x: Coord, y: Coord) -> P::Id {
         object.place_in(self, x, y)
@@ -318,6 +345,26 @@ impl World {
             src: src.pos + source.offset,
             dst: dst.pos + destination.offset,
         };
+
+        // WARNING: Port collision detection. O(n) time complexity.
+        // could instead use hashmaps for O(1) mapping of positions to building debug info.
+        // ideally with some sort of stack trace that traces a building's exact blueprint.
+        for old in &self.connections {
+            assert_ne!(
+                connection.src, old.src,
+                "Connection Source conflict:\n\
+                    - new src: {src:#?}\n\
+                    - new dst: {dst:#?}\n\
+                    - old: {old:#?}"
+            );
+            assert_ne!(
+                connection.dst, old.dst,
+                "Connection Destination conflict:\n\
+                    - new src: {src:#?}\n\
+                    - new dst: {dst:#?}\n\
+                    - old: {old:#?}"
+            );
+        }
         self.connections.push(connection);
     }
 
