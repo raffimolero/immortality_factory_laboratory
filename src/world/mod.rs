@@ -368,6 +368,12 @@ impl World {
         self.connections.push(connection);
     }
 
+    pub fn connect_all(&mut self, connections: impl IntoIterator<Item = (PortOut, PortIn)>) {
+        for (output, input) in connections {
+            self.connect(output, input);
+        }
+    }
+
     pub fn export(&self, f: &mut impl Write) -> io::Result<()> {
         writeln!(
             f,
