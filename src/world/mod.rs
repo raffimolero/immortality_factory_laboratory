@@ -320,14 +320,34 @@ impl World {
         assert!(
             structure.index < self.structures.len(),
             "Source structure does not exist.\n\
-                            Tried to get {structure:?} but only {} structures exist.",
+            Tried to get {structure:?} but only {} structures exist.",
             self.structures.len()
         );
         structure.index
     }
 
     /// panics if you mess anything up lmao
-    pub fn connect(&mut self, source: PortOut, destination: PortIn) {}
+    pub fn connect(&mut self, source: PortOut, destination: PortIn) {
+        let src = self.get_structure_index(source.structure_id);
+        let dst = self.get_structure_index(destination.structure_id);
+        // src and dst may refer to the same structure
+        assert!(
+            self.structures[src].structure.get_outputs_mut()[source.index as usize]
+                .target
+                .is_none(),
+            "Structure is already connected."
+        );
+        assert!(
+            self.structures[dst].structure.get_inputs()[destination.index as usize]
+                .target
+                .is_none(),
+            "Structure is already connected."
+        );
+        self.structures[src].structure.get_outputs_mut()[source.index as usize].target =
+            Some(destination.into());
+        self.structures[dst].structure.get_inputs_mut()[destination.index as usize].target =
+            Some(source.into());
+    }
 
     pub fn connect_all(&mut self, connections: impl IntoIterator<Item = (PortOut, PortIn)>) {
         for (output, input) in connections {

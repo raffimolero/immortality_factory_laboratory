@@ -59,6 +59,34 @@ impl Entity for PortOut {
     }
 }
 
+/// NOTE: PositionedStructureData and StructureDataFull are not Entities because they do not hold
+/// world ID
+impl StructureDataFull {
+    fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
+        let mut structure = *self;
+        for port in structure.get_inputs_mut() {
+            if let Some(port) = &mut port.target {
+                port.structure_index += pasted_world.base_index;
+            }
+        }
+        for port in structure.get_outputs_mut() {
+            if let Some(port) = &mut port.target {
+                port.structure_index += pasted_world.base_index;
+            }
+        }
+        structure
+    }
+}
+
+impl PositionedStructureData {
+    fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
+        PositionedStructureData {
+            pos: self.pos + pasted_world.offset,
+            structure: self.structure._map_inside(pasted_world),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PastedWorld {
     blueprint_id: WorldId,
@@ -95,17 +123,21 @@ impl Placeable for &World {
     fn place_in(self, world: &mut World, x: Coord, y: Coord) -> PastedWorld {
         let base_index = world.structures.len();
         let offset = Offset { x, y };
-        for &structure in &self.structures {
-            let structure = structure + offset;
-            world.assert_no_structure_collision(&structure);
-            world.structures.push(structure);
-        }
-        PastedWorld {
+        let pasted_world = PastedWorld {
             blueprint_id: self.world_id,
             host_id: world.world_id,
             base_index,
             offset,
+        };
+        for &structure in &self.structures {
+            let structure = PositionedStructureData {
+                pos: structure.pos + offset,
+                structure: structure.structure._map_inside(&pasted_world),
+            };
+            world.assert_no_structure_collision(&structure);
+            world.structures.push(structure);
         }
+        pasted_world
     }
 }
 

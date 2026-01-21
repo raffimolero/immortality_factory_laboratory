@@ -17,15 +17,45 @@ pub struct IoData {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub(crate) struct PortOutRaw {
+    pub(crate) structure_index: usize,
+    pub(crate) port: u8,
+}
+
+impl From<PortOut> for PortOutRaw {
+    fn from(value: PortOut) -> Self {
+        Self {
+            structure_index: value.structure_id.index,
+            port: value.index,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub(crate) struct PortInRaw {
+    pub(crate) structure_index: usize,
+    pub(crate) port: u8,
+}
+
+impl From<PortIn> for PortInRaw {
+    fn from(value: PortIn) -> Self {
+        Self {
+            structure_index: value.structure_id.index,
+            port: value.index,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct PortOutData {
     pub item: Item,
-    target: Option<PortIn>,
+    pub(crate) target: Option<PortInRaw>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct PortInData {
     pub item: Item,
-    target: Option<PortOut>,
+    pub(crate) target: Option<PortOutRaw>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -251,11 +281,51 @@ impl StructureDataFull {
             BigSplitter { inputs, .. } => inputs,
         }
     }
+
+    pub fn get_inputs_mut(&mut self) -> &mut [PortInData] {
+        use StructureDataFull::*;
+        match self {
+            AirPump { .. } => &mut [],
+            Refinery { inputs, .. } => inputs,
+            Disharmonizer { inputs, .. } => inputs,
+            Unifier { inputs, .. } => inputs,
+            SubdimensionalMarket { inputs, .. } => inputs,
+            Splitter { inputs, .. } => inputs,
+            Merger { inputs, .. } => inputs,
+            StorageVault { inputs, .. } => inputs,
+            AbysalDoor { inputs, .. } => inputs,
+            SingleStorage { inputs } => inputs,
+            Laboratory { inputs, .. } => inputs,
+            RitualInfuser { inputs, .. } => inputs,
+            BigMerger { inputs, .. } => inputs,
+            BigSplitter { inputs, .. } => inputs,
+        }
+    }
+
     pub fn get_outputs(&self) -> &[PortOutData] {
         use StructureDataFull::*;
         match self {
             AbysalDoor { .. } | SingleStorage { .. } | Laboratory { .. } | RitualInfuser { .. } => {
                 &[]
+            }
+            AirPump { outputs, .. } => outputs,
+            Refinery { outputs, .. } => outputs,
+            Disharmonizer { outputs, .. } => outputs,
+            Unifier { outputs, .. } => outputs,
+            SubdimensionalMarket { outputs, .. } => outputs,
+            Splitter { outputs, .. } => outputs,
+            Merger { outputs, .. } => outputs,
+            StorageVault { outputs, .. } => outputs,
+            BigMerger { outputs, .. } => outputs,
+            BigSplitter { outputs, .. } => outputs,
+        }
+    }
+
+    pub fn get_outputs_mut(&mut self) -> &mut [PortOutData] {
+        use StructureDataFull::*;
+        match self {
+            AbysalDoor { .. } | SingleStorage { .. } | Laboratory { .. } | RitualInfuser { .. } => {
+                &mut []
             }
             AirPump { outputs, .. } => outputs,
             Refinery { outputs, .. } => outputs,
@@ -291,7 +361,67 @@ impl StructureDataFull {
         let (world_x, world_y) = Position { x: raw_x, y: raw_y }.world_coords();
         let obj_num = self.kind().object_number();
 
-        self.export_struct(f, world, id)?;
+        write!(f, r#"{id}-struct="{{+output_list+:["#)?;
+        for (
+            i,
+            (
+                ConnectorData {
+                    port: Offset { x: px, y: py },
+                    slot: Offset { x: sx, y: sy },
+                },
+                PortOutData { item, target },
+            ),
+        ) in self
+            .kind()
+            .connectors()
+            .outputs
+            .iter()
+            .zip(self.get_outputs())
+            .enumerate()
+        {
+            let item_id = *item as i8;
+            let (target_port, target_id, target_x, target_y) =
+                target.map_or((-1, -1, -1, -1), |port| {
+                    let i = port.structure_index;
+                    let (tx, ty) = world.structures[i].pos.world_coords();
+                    (port.port as i8, i as i32 + 100000, tx, ty)
+                });
+            write!(
+                f,
+                r#"{{+index+:{i}.0,+column+:{px}.0,+row+:{py}.0,+content_column+:{sx}.0,+type+:1,+content_row+:{sy}.0,+content+:{item_id}.0,+connected_machine+:{target_id},+connected_machine_slot_index+:{target_port}.0,+connected_machine_x+:{target_x}.0,+connected_machine_y+:{target_y}.0}}"#
+            )?;
+        }
+        write!(f, "],{},+input_list+:[", self.machine_type())?;
+        for (
+            i,
+            (
+                ConnectorData {
+                    port: Offset { x: px, y: py },
+                    slot: Offset { x: sx, y: sy },
+                },
+                PortInData { item, target },
+            ),
+        ) in self
+            .kind()
+            .connectors()
+            .inputs
+            .iter()
+            .zip(self.get_inputs())
+            .enumerate()
+        {
+            let item_id = *item as i8;
+            let (target_port, target_id, target_x, target_y) =
+                target.map_or((-1, -1, -1, -1), |port| {
+                    let i = port.structure_index;
+                    let (tx, ty) = world.structures[i].pos.world_coords();
+                    (port.port as i8, i as i32 + 100000, tx, ty)
+                });
+            write!(
+                f,
+                r#"{{+index+:{i}.0,+column+:{px}.0,+row+:{py}.0,+content_column+:{sx}.0,+type+:0,+content_row+:{sy}.0,+content+:{item_id}.0,+connected_machine+:{target_id},+connected_machine_slot_index+:{target_port}.0,+connected_machine_x+:{target_x}.0,+connected_machine_y+:{target_y}.0}}"#
+            )?;
+        }
+        writeln!(f, r#"]}}""#)?;
         writeln!(f, "{id}-y=\"{world_y}.000000\"")?;
         writeln!(f, "{id}-x=\"{world_x}.000000\"")?;
         writeln!(f, "{id}-object=\"{obj_num}.000000\"")?;
@@ -301,8 +431,8 @@ impl StructureDataFull {
         Ok(())
     }
 
-    fn export_struct(&self, f: &mut impl Write, world: &World, id: usize) -> io::Result<()> {
-        let machine_type = match *self {
+    fn machine_type(&self) -> &'static str {
+        match *self {
             Self::AirPump { .. } => {
                 "+type+:0,+machine_type+:{+name+:+Air Pump+,+type+:0,+description+:+Sucks in potent air from the surrounding valley and puts it in a bottle.+,+sprite+:5,+machine_cost+:{+cost_type_list+:[8,0,0,1,1,2,2,5,15,16,16,16,7,7,7,7,7,7,20,20,20,21,21,21,21,21,21],+cost_amount_list+:[3.0,2.0,4.0,4.0,4.0,4.0,3.0,4.0,5.0,3.0,3.0,3.0,4.0,4.0,3.0,3.0,2.0,2.0,3.0,3.0,2.0,3.0,3.0,2.0,2.0,1.0,1.0]},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:8.0}"
             }
@@ -345,68 +475,7 @@ impl StructureDataFull {
             Self::BigSplitter { .. } => {
                 "+type+:13,+machine_type+:{+name+:+Big Splitter+,+type+:13,+description+:+Splits Outputs. Lowest always first.+,+sprite+:22,+machine_cost+:{+cost_type_list+:[5,5,5,5,5,5,5],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:true,+machine_speed+:-10}"
             }
-        };
-        write!(f, r#"{id}-struct="{{+output_list+:["#)?;
-        for (
-            i,
-            (
-                ConnectorData {
-                    port: Offset { x: px, y: py },
-                    slot: Offset { x: sx, y: sy },
-                },
-                PortOutData { item, target },
-            ),
-        ) in self
-            .kind()
-            .connectors()
-            .outputs
-            .iter()
-            .zip(self.get_outputs())
-            .enumerate()
-        {
-            let item_id = *item as i8;
-            let (target_port, target_id, target_x, target_y) =
-                target.map_or((-1, -1, -1, -1), |port| {
-                    let i = port.structure_id.index;
-                    let (tx, ty) = world.structures[i].pos.world_coords();
-                    (port.index as i8, i as i32 + 100000, tx, ty)
-                });
-            write!(
-                f,
-                r#"{{+index+:{i}.0,+column+:{px}.0,+row+:{py}.0,+content_column+:{sx}.0,+type+:1,+content_row+:{sy}.0,+content+:{item_id}.0,+connected_machine+:{target_id}.0,+connected_machine_slot_index+:{target_port}.0,+connected_machine_x+:{target_x}.0,+connected_machine_y+:{target_y}.0}}"#
-            )?;
         }
-        write!(f, "],{machine_type},+input_list+:[")?;
-        for (
-            i,
-            (
-                ConnectorData {
-                    port: Offset { x: px, y: py },
-                    slot: Offset { x: sx, y: sy },
-                },
-                PortInData { item, target },
-            ),
-        ) in self
-            .kind()
-            .connectors()
-            .inputs
-            .iter()
-            .zip(self.get_inputs())
-            .enumerate()
-        {
-            let item_id = *item as i8;
-            let (target_port, target_id, target_x, target_y) =
-                target.map_or((-1, -1, -1, -1), |port| {
-                    let i = port.structure_id.index;
-                    let (tx, ty) = world.structures[i].pos.world_coords();
-                    (port.index as i8, i as i32 + 100000, tx, ty)
-                });
-            write!(
-                f,
-                r#"{{+index+:{i}.0,+column+:{px}.0,+row+:{py}.0,+content_column+:{sx}.0,+type+:0,+content_row+:{sy}.0,+content+:{item_id}.0,+connected_machine+:{target_id},+connected_machine_slot_index+:{target_port}.0,+connected_machine_x+:{target_x}.0,+connected_machine_y+:{target_y}.0}}"#
-            )?;
-        }
-        writeln!(f, r#"]}}""#)
     }
 }
 
@@ -454,14 +523,14 @@ impl StructureKind {
             Self::AirPump => IoData {
                 inputs: &[],
                 outputs: &[ConnectorData {
-                    port: Offset { x: 1, y: 0 },
-                    slot: Offset { x: 1, y: 1 },
+                    port: Offset { x: 1, y: 1 },
+                    slot: Offset { x: 1, y: 0 },
                 }],
             },
             Self::Refinery => IoData {
                 inputs: &[ConnectorData {
                     port: Offset { x: 0, y: 0 },
-                    slot: Offset { x: 0, y: 0 },
+                    slot: Offset { x: 0, y: 1 },
                 }],
                 outputs: &[ConnectorData {
                     port: Offset { x: 5, y: 0 },
