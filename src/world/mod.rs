@@ -7,7 +7,7 @@ use std::{
     sync::Mutex,
 };
 
-use crate::prelude::*;
+use crate::{prelude::*, structure::StructureDataFull};
 // use super::structure::{StructureData, StructureKind};
 
 type ID = NonZeroU32;
@@ -99,7 +99,7 @@ impl Add<Offset> for PositionedStructureData {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PositionedStructureData {
     pub pos: Position,
-    pub structure: StructureData,
+    pub structure: StructureDataFull,
 }
 
 /// technically only the index is necessary. the rest are for debug assertions.
@@ -124,7 +124,7 @@ impl Machine for Structure {
             .inputs
             .get(port)
             .copied()
-            .filter(Offset::non_null)
+            .filter(|conn| conn.port.non_null())
             .unwrap_or_else(|| {
                 panic!("Tried to get {structure:?} input port #{port}, does not exist.")
             });
@@ -141,7 +141,7 @@ impl Machine for Structure {
             .outputs
             .get(port)
             .copied()
-            .filter(Offset::non_null)
+            .filter(|conn| conn.port.non_null())
             .unwrap_or_else(|| {
                 panic!("Tried to get {structure:?} output port #{port}, does not exist.")
             });
@@ -218,13 +218,13 @@ pub trait Placeable {
     fn place_in(self, world: &mut World, x: Coord, y: Coord) -> Self::Id;
 }
 
-impl HasSize for StructureData {
+impl HasSize for StructureDataFull {
     fn size(&self) -> Size {
         self.kind().size()
     }
 }
 
-impl Placeable for StructureData {
+impl Placeable for StructureDataFull {
     type Id = Structure;
 
     fn place_in(self, world: &mut World, x: Coord, y: Coord) -> Self::Id {
@@ -243,11 +243,19 @@ impl Placeable for StructureData {
     }
 }
 
+impl Placeable for StructureData {
+    type Id = Structure;
+
+    fn place_in(self, world: &mut World, x: Coord, y: Coord) -> Self::Id {
+        StructureDataFull::from(self).place_in(world, x, y)
+    }
+}
+
 impl Placeable for StructureKind {
     type Id = Structure;
 
     fn place_in(self, world: &mut World, x: Coord, y: Coord) -> Self::Id {
-        StructureData::from(self).place_in(world, x, y)
+        StructureDataFull::from(self).place_in(world, x, y)
     }
 }
 
@@ -318,15 +326,8 @@ impl World {
         structure.index
     }
 
-    fn get_structure_inputs(&self, structure: Structure) -> &[NodeIn] {
-        self.get_structure(structure).structure.get_inputs
-    }
-
     /// panics if you mess anything up lmao
-    pub fn connect(&mut self, source: PortOut, destination: PortIn) {
-        let src = self.get_structure_index(source.structure_id);
-        let dst = self.get_structure_index(destination.structure_id);
-    }
+    pub fn connect(&mut self, source: PortOut, destination: PortIn) {}
 
     pub fn connect_all(&mut self, connections: impl IntoIterator<Item = (PortOut, PortIn)>) {
         for (output, input) in connections {
@@ -343,7 +344,7 @@ impl World {
         )?;
 
         for (i, PositionedStructureData { pos, structure }) in self.structures.iter().enumerate() {
-            structure.export(f, i, pos.x, pos.y)?;
+            structure.export(f, self, i, pos.x, pos.y)?;
         }
         let structure_count = self.structures.len();
         writeln!(

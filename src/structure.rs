@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use crate::world::Position;
 
 use std::fmt::{self, Display};
 use std::io::{self, Write};
@@ -29,6 +30,139 @@ pub struct PortInData {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum StructureData {
+    AirPump {
+        output: Item,
+    },
+    Refinery {
+        input: Item,
+        storage: [Item; 12],
+        output: Item,
+    },
+    Disharmonizer {
+        input: Item,
+        outputs: [Item; 4],
+    },
+    Unifier {
+        inputs: [Item; 3],
+        output: Item,
+    },
+    SubdimensionalMarket {
+        input: Item,
+        outputs: [Item; 3],
+    },
+    Splitter {
+        input: Item,
+        outputs: [Item; 2],
+    },
+    Merger {
+        inputs: [Item; 2],
+        output: Item,
+    },
+    StorageVault {
+        input: Item,
+        storage: [Item; 16],
+        output: Item,
+    },
+    AbysalDoor {
+        input: Item,
+    },
+    SingleStorage {
+        // technically considered an input in the code
+        input: Item,
+    },
+    Laboratory {
+        input: Item,
+    },
+    RitualInfuser {
+        inputs: [Item; 3],
+        output: Item,
+    },
+    BigMerger {
+        inputs: [Item; 5],
+        output: Item,
+    },
+    BigSplitter {
+        input: Item,
+        outputs: [Item; 5],
+    },
+}
+
+impl From<StructureData> for StructureDataFull {
+    fn from(value: StructureData) -> Self {
+        use StructureData::*;
+        fn i(item: Item) -> PortInData {
+            PortInData { item, target: None }
+        }
+        fn o(item: Item) -> PortOutData {
+            PortOutData { item, target: None }
+        }
+
+        match value {
+            AirPump { output } => StructureDataFull::AirPump {
+                outputs: [o(output)],
+            },
+            Refinery {
+                input,
+                storage,
+                output,
+            } => StructureDataFull::Refinery {
+                inputs: [i(input)],
+                storage,
+                outputs: [o(output)],
+            },
+            Disharmonizer { input, outputs } => StructureDataFull::Disharmonizer {
+                inputs: [i(input)],
+                outputs: outputs.map(o),
+            },
+            Unifier { inputs, output } => StructureDataFull::Unifier {
+                inputs: inputs.map(i),
+                outputs: [o(output)],
+            },
+            SubdimensionalMarket { input, outputs } => StructureDataFull::SubdimensionalMarket {
+                inputs: [i(input)],
+                outputs: outputs.map(o),
+            },
+            Splitter { input, outputs } => StructureDataFull::Splitter {
+                inputs: [i(input)],
+                outputs: outputs.map(o),
+            },
+            Merger { inputs, output } => StructureDataFull::Merger {
+                inputs: inputs.map(i),
+                outputs: [o(output)],
+            },
+            StorageVault {
+                input,
+                storage,
+                output,
+            } => StructureDataFull::StorageVault {
+                inputs: [i(input)],
+                storage,
+                outputs: [o(output)],
+            },
+            AbysalDoor { input } => StructureDataFull::AbysalDoor { inputs: [i(input)] },
+            SingleStorage {
+                // technically considered an input in the code
+                input,
+            } => StructureDataFull::SingleStorage { inputs: [i(input)] },
+            Laboratory { input } => StructureDataFull::Laboratory { inputs: [i(input)] },
+            RitualInfuser { inputs, output } => StructureDataFull::RitualInfuser {
+                inputs: inputs.map(i),
+                outputs: [o(output)],
+            },
+            BigMerger { inputs, output } => StructureDataFull::BigMerger {
+                inputs: inputs.map(i),
+                outputs: [o(output)],
+            },
+            BigSplitter { input, outputs } => StructureDataFull::BigSplitter {
+                inputs: [i(input)],
+                outputs: outputs.map(o),
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum StructureDataFull {
     AirPump {
         outputs: [PortOutData; 1],
     },
@@ -85,7 +219,7 @@ pub enum StructureData {
     },
 }
 
-impl StructureData {
+impl StructureDataFull {
     pub fn kind(&self) -> StructureKind {
         self.into()
     }
@@ -99,7 +233,7 @@ impl StructureData {
     }
 
     pub fn get_inputs(&self) -> &[PortInData] {
-        use StructureData::*;
+        use StructureDataFull::*;
         match self {
             AirPump { .. } => &[],
             Refinery { inputs, .. } => inputs,
@@ -118,7 +252,7 @@ impl StructureData {
         }
     }
     pub fn get_outputs(&self) -> &[PortOutData] {
-        use StructureData::*;
+        use StructureDataFull::*;
         match self {
             AbysalDoor { .. } | SingleStorage { .. } | Laboratory { .. } | RitualInfuser { .. } => {
                 &[]
@@ -149,15 +283,15 @@ impl StructureData {
     pub fn export(
         &self,
         f: &mut impl Write,
+        world: &World,
         id: usize,
         raw_x: Coord,
         raw_y: Coord,
     ) -> io::Result<()> {
-        let world_y = raw_y as i32 * 22;
-        let world_x = raw_x as i32 * 22;
+        let (world_x, world_y) = Position { x: raw_x, y: raw_y }.world_coords();
         let obj_num = self.kind().object_number();
 
-        self.export_struct(f, id)?;
+        self.export_struct(f, world, id)?;
         writeln!(f, "{id}-y=\"{world_y}.000000\"")?;
         writeln!(f, "{id}-x=\"{world_x}.000000\"")?;
         writeln!(f, "{id}-object=\"{obj_num}.000000\"")?;
@@ -166,14 +300,8 @@ impl StructureData {
         }
         Ok(())
     }
-    //
-    // fn export_with(&self, f: &mut impl Write, id: usize, output_list: &[PortOutData], machine_type: &str, input_list: &[PortInData]) -> io::Result<()> {
-    //     writeln!(f, r#"{id}-struct="{{+output_list+:["#)?;
-    //     writeln!(f, r#"]+type+:0.0,+machine_type+:}}""}#)?;
-    //
-    // }
 
-    fn export_struct(&self, f: &mut impl Write, id: usize, world: &World) -> io::Result<()> {
+    fn export_struct(&self, f: &mut impl Write, world: &World, id: usize) -> io::Result<()> {
         let machine_type = match *self {
             Self::AirPump { .. } => {
                 "+type+:0.0,+machine_type+:{+name+:+Air Pump+,+type+:0,+description+:+Sucks in potent air from the surrounding valley and puts it in a bottle.+,+sprite+:5,+machine_cost+:{+cost_type_list+:[8,0,0,1,1,2,2,5,15,16,16,16,7,7,7,7,7,7,20,20,20,21,21,21,21,21,21],+cost_amount_list+:[3.0,2.0,4.0,4.0,4.0,4.0,3.0,4.0,5.0,3.0,3.0,3.0,4.0,4.0,3.0,3.0,2.0,2.0,3.0,3.0,2.0,3.0,3.0,2.0,2.0,1.0,1.0]},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:8.0},"
@@ -325,115 +453,251 @@ impl StructureKind {
         match self {
             Self::AirPump => IoData {
                 inputs: &[],
-                outputs: &[Offset { x: 1, y: 1 }],
+                outputs: &[ConnectorData {
+                    port: Offset { x: 1, y: 0 },
+                    slot: Offset { x: 1, y: 1 },
+                }],
             },
             Self::Refinery => IoData {
-                inputs: &[Offset { x: 0, y: 0 }],
-                outputs: &[Offset { x: 5, y: 0 }],
+                inputs: &[ConnectorData {
+                    port: Offset { x: 0, y: 0 },
+                    slot: Offset { x: 0, y: 0 },
+                }],
+                outputs: &[ConnectorData {
+                    port: Offset { x: 5, y: 0 },
+                    slot: Offset { x: 5, y: 1 },
+                }],
             },
             Self::Disharmonizer => IoData {
-                inputs: &[Offset { x: 0, y: 3 }],
+                inputs: &[ConnectorData {
+                    port: Offset { x: 0, y: 3 },
+                    slot: Offset { x: 0, y: 2 },
+                }],
                 outputs: &[
-                    Offset { x: 3, y: 0 },
-                    Offset { x: 3, y: 1 },
-                    Offset { x: 3, y: 2 },
-                    Offset { x: 3, y: 3 },
+                    ConnectorData {
+                        port: Offset { x: 3, y: 0 },
+                        slot: Offset { x: 4, y: 0 },
+                    },
+                    ConnectorData {
+                        port: Offset { x: 3, y: 1 },
+                        slot: Offset { x: 4, y: 1 },
+                    },
+                    ConnectorData {
+                        port: Offset { x: 3, y: 2 },
+                        slot: Offset { x: 4, y: 2 },
+                    },
+                    ConnectorData {
+                        port: Offset { x: 3, y: 3 },
+                        slot: Offset { x: 4, y: 3 },
+                    },
                 ],
             },
             Self::Unifier => IoData {
                 inputs: &[
-                    Offset { x: 0, y: 4 },
-                    Offset { x: 1, y: 4 },
-                    Offset { x: 2, y: 4 },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 4 },
+                        slot: Offset { x: 0, y: 3 },
+                    },
+                    ConnectorData {
+                        port: Offset { x: 1, y: 4 },
+                        slot: Offset { x: 1, y: 3 },
+                    },
+                    ConnectorData {
+                        port: Offset { x: 2, y: 4 },
+                        slot: Offset { x: 2, y: 3 },
+                    },
                 ],
-                outputs: &[Offset { x: 1, y: 0 }],
+                outputs: &[ConnectorData {
+                    port: Offset { x: 1, y: 0 },
+                    slot: Offset { x: 1, y: 1 },
+                }],
             },
             Self::SubdimensionalMarket => IoData {
-                inputs: &[Offset { x: 3, y: 4 }],
+                inputs: &[ConnectorData {
+                    port: Offset { x: 3, y: 4 },
+                    slot: Offset { x: 2, y: 4 },
+                }],
                 outputs: &[
-                    Offset { x: 3, y: 0 },
-                    Offset { x: 3, y: 1 },
-                    Offset { x: 3, y: 2 },
+                    ConnectorData {
+                        port: Offset { x: 3, y: 0 },
+                        slot: Offset { x: 2, y: 0 },
+                    },
+                    ConnectorData {
+                        port: Offset { x: 3, y: 1 },
+                        slot: Offset { x: 2, y: 1 },
+                    },
+                    ConnectorData {
+                        port: Offset { x: 3, y: 2 },
+                        slot: Offset { x: 2, y: 2 },
+                    },
                 ],
             },
             Self::Splitter => IoData {
-                inputs: &[Offset { x: 0, y: 1 }],
-                outputs: &[Offset { x: 0, y: 0 }, Offset { x: 0, y: 2 }],
+                inputs: &[ConnectorData {
+                    port: Offset { x: 0, y: 1 },
+                    slot: Offset::NULL,
+                }],
+                outputs: &[
+                    ConnectorData {
+                        port: Offset { x: 0, y: 0 },
+                        slot: Offset::NULL,
+                    },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 2 },
+                        slot: Offset::NULL,
+                    },
+                ],
             },
             Self::Merger => IoData {
-                inputs: &[Offset { x: 0, y: 0 }, Offset { x: 0, y: 2 }],
-                outputs: &[Offset { x: 0, y: 1 }],
+                inputs: &[
+                    ConnectorData {
+                        port: Offset { x: 0, y: 0 },
+                        slot: Offset::NULL,
+                    },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 2 },
+                        slot: Offset::NULL,
+                    },
+                ],
+                outputs: &[ConnectorData {
+                    port: Offset { x: 0, y: 1 },
+                    slot: Offset::NULL,
+                }],
             },
             Self::StorageVault => IoData {
-                inputs: &[Offset { x: 0, y: 1 }],
-                outputs: &[Offset { x: 4, y: 1 }],
+                inputs: &[ConnectorData {
+                    port: Offset { x: 0, y: 1 },
+                    slot: Offset { x: 0, y: 0 },
+                }],
+                outputs: &[ConnectorData {
+                    port: Offset { x: 4, y: 1 },
+                    slot: Offset { x: 4, y: 0 },
+                }],
             },
             Self::AbysalDoor => IoData {
-                inputs: &[Offset { x: 0, y: 0 }],
+                inputs: &[ConnectorData {
+                    port: Offset { x: 0, y: 0 },
+                    slot: Offset { x: 1, y: 0 },
+                }],
                 outputs: &[],
             },
             Self::SingleStorage => IoData {
                 inputs: &[],
-                outputs: &[Offset::NULL],
+                outputs: &[ConnectorData {
+                    port: Offset::NULL,
+                    slot: Offset { x: 0, y: 0 },
+                }],
             },
             Self::Laboratory => IoData {
-                inputs: &[Offset { x: 0, y: 1 }],
+                inputs: &[ConnectorData {
+                    port: Offset { x: 0, y: 1 },
+                    slot: Offset { x: 0, y: 0 },
+                }],
                 outputs: &[],
             },
             Self::RitualInfuser => IoData {
                 inputs: &[
-                    Offset { x: 0, y: 1 },
-                    Offset { x: 2, y: 0 },
-                    Offset { x: 4, y: 1 },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 1 },
+                        slot: Offset { x: 1, y: 1 },
+                    },
+                    ConnectorData {
+                        port: Offset { x: 2, y: 0 },
+                        slot: Offset { x: 2, y: 1 },
+                    },
+                    ConnectorData {
+                        port: Offset { x: 4, y: 1 },
+                        slot: Offset { x: 3, y: 1 },
+                    },
                 ],
-                outputs: &[Offset::NULL],
+                outputs: &[ConnectorData {
+                    port: Offset::NULL,
+                    slot: Offset { x: 2, y: 3 },
+                }],
             },
             Self::BigMerger => IoData {
                 inputs: &[
-                    Offset { x: 0, y: 0 },
-                    Offset { x: 0, y: 1 },
-                    Offset { x: 0, y: 2 },
-                    Offset { x: 0, y: 3 },
-                    Offset { x: 0, y: 4 },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 0 },
+                        slot: Offset::NULL,
+                    },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 1 },
+                        slot: Offset::NULL,
+                    },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 2 },
+                        slot: Offset::NULL,
+                    },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 3 },
+                        slot: Offset::NULL,
+                    },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 4 },
+                        slot: Offset::NULL,
+                    },
                 ],
-                outputs: &[Offset { x: 0, y: 5 }],
+                outputs: &[ConnectorData {
+                    port: Offset { x: 0, y: 5 },
+                    slot: Offset::NULL,
+                }],
             },
             Self::BigSplitter => IoData {
-                inputs: &[Offset { x: 0, y: 5 }],
+                inputs: &[ConnectorData {
+                    port: Offset { x: 0, y: 5 },
+                    slot: Offset::NULL,
+                }],
                 outputs: &[
-                    Offset { x: 0, y: 0 },
-                    Offset { x: 0, y: 1 },
-                    Offset { x: 0, y: 2 },
-                    Offset { x: 0, y: 3 },
-                    Offset { x: 0, y: 4 },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 0 },
+                        slot: Offset::NULL,
+                    },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 1 },
+                        slot: Offset::NULL,
+                    },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 2 },
+                        slot: Offset::NULL,
+                    },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 3 },
+                        slot: Offset::NULL,
+                    },
+                    ConnectorData {
+                        port: Offset { x: 0, y: 4 },
+                        slot: Offset::NULL,
+                    },
                 ],
             },
         }
     }
 }
 
-impl From<&StructureData> for StructureKind {
-    fn from(value: &StructureData) -> Self {
+impl From<&StructureDataFull> for StructureKind {
+    fn from(value: &StructureDataFull) -> Self {
+        use StructureDataFull::*;
         match value {
-            StructureData::AirPump { .. } => Self::AirPump,
-            StructureData::Refinery { .. } => Self::Refinery,
-            StructureData::Disharmonizer { .. } => Self::Disharmonizer,
-            StructureData::Unifier { .. } => Self::Unifier,
-            StructureData::SubdimensionalMarket { .. } => Self::SubdimensionalMarket,
-            StructureData::Splitter { .. } => Self::Splitter,
-            StructureData::Merger { .. } => Self::Merger,
-            StructureData::StorageVault { .. } => Self::StorageVault,
-            StructureData::AbysalDoor { .. } => Self::AbysalDoor,
-            StructureData::SingleStorage { .. } => Self::SingleStorage,
-            StructureData::Laboratory { .. } => Self::Laboratory,
-            StructureData::RitualInfuser { .. } => Self::RitualInfuser,
-            StructureData::BigMerger { .. } => Self::BigMerger,
-            StructureData::BigSplitter { .. } => Self::BigSplitter,
+            AirPump { .. } => Self::AirPump,
+            Refinery { .. } => Self::Refinery,
+            Disharmonizer { .. } => Self::Disharmonizer,
+            Unifier { .. } => Self::Unifier,
+            SubdimensionalMarket { .. } => Self::SubdimensionalMarket,
+            Splitter { .. } => Self::Splitter,
+            Merger { .. } => Self::Merger,
+            StorageVault { .. } => Self::StorageVault,
+            AbysalDoor { .. } => Self::AbysalDoor,
+            SingleStorage { .. } => Self::SingleStorage,
+            Laboratory { .. } => Self::Laboratory,
+            RitualInfuser { .. } => Self::RitualInfuser,
+            BigMerger { .. } => Self::BigMerger,
+            BigSplitter { .. } => Self::BigSplitter,
         }
     }
 }
 
-impl From<StructureKind> for StructureData {
+impl From<StructureKind> for StructureDataFull {
     fn from(value: StructureKind) -> Self {
         match value {
             StructureKind::AirPump => Self::AirPump {
