@@ -36,15 +36,15 @@ pub struct Position {
 }
 
 impl Position {
-    fn world_x(&self) -> Coord {
+    pub(crate) fn world_x(&self) -> Coord {
         self.x * 22
     }
 
-    fn world_y(&self) -> Coord {
+    pub(crate) fn world_y(&self) -> Coord {
         self.y * 22
     }
 
-    fn world_coords(&self) -> (Coord, Coord) {
+    pub(crate) fn world_coords(&self) -> (Coord, Coord) {
         (self.world_x(), self.world_y())
     }
 }
@@ -96,34 +96,6 @@ impl Add<Offset> for PositionedStructureData {
     }
 }
 
-impl Add<Offset> for DirectConnection {
-    type Output = Self;
-
-    fn add(self, rhs: Offset) -> Self::Output {
-        Self {
-            src: self.src + rhs,
-            dst: self.dst + rhs,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DirectConnection {
-    pub src: Position,
-    pub dst: Position,
-}
-
-impl DirectConnection {
-    fn export(&self, f: &mut impl Write, id: usize) -> io::Result<()> {
-        let (x1, y1) = self.src.world_coords();
-        let (x2, y2) = self.dst.world_coords();
-        writeln!(
-            f,
-            "{id}-struct=\"{{+point_a+:{{+x+:{x1}.0,+y+:{y1}.0,+type+:1}},+point_b+:{{+x+:{x2}.0,+y+:{y2}.0,+type+:0}}}}\"",
-        )
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PositionedStructureData {
     pub pos: Position,
@@ -133,9 +105,9 @@ pub struct PositionedStructureData {
 /// technically only the index is necessary. the rest are for debug assertions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Structure {
-    world_id: WorldId,
-    index: usize,
-    kind: StructureKind,
+    pub(crate) world_id: WorldId,
+    pub(crate) index: usize,
+    pub(crate) kind: StructureKind,
 }
 
 impl HasSize for Structure {
@@ -147,7 +119,7 @@ impl HasSize for Structure {
 impl Machine for Structure {
     fn input(&self, port: usize) -> PortIn {
         let structure = &self.kind;
-        let offset = structure
+        let _offset = structure
             .connectors()
             .inputs
             .get(port)
@@ -158,13 +130,13 @@ impl Machine for Structure {
             });
         PortIn {
             structure_id: *self,
-            offset,
+            index: port as u8,
         }
     }
 
     fn output(&self, port: usize) -> PortOut {
         let structure = &self.kind;
-        let offset = structure
+        let _offset = structure
             .connectors()
             .outputs
             .get(port)
@@ -175,21 +147,21 @@ impl Machine for Structure {
             });
         PortOut {
             structure_id: *self,
-            offset,
+            index: port as u8,
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PortIn {
-    structure_id: Structure,
-    offset: Offset,
+    pub(crate) structure_id: Structure,
+    pub(crate) index: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct PortOut {
-    structure_id: Structure,
-    offset: Offset,
+    pub(crate) structure_id: Structure,
+    pub(crate) index: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -283,7 +255,6 @@ impl Placeable for StructureKind {
 pub struct World {
     world_id: WorldId,
     pub structures: Vec<PositionedStructureData>,
-    pub connections: Vec<DirectConnection>,
 }
 
 impl World {
@@ -291,7 +262,6 @@ impl World {
         Self {
             world_id: new_world_id(),
             structures: vec![],
-            connections: vec![],
         }
     }
 
@@ -336,36 +306,26 @@ impl World {
         })
     }
 
+    /// panics on invalid structure good luck lmao
+    fn get_structure_index(&self, structure: Structure) -> usize {
+        assert_eq!(structure.world_id, self.world_id, "World IDs must match.");
+        assert!(
+            structure.index < self.structures.len(),
+            "Source structure does not exist.\n\
+                            Tried to get {structure:?} but only {} structures exist.",
+            self.structures.len()
+        );
+        structure.index
+    }
+
+    fn get_structure_inputs(&self, structure: Structure) -> &[NodeIn] {
+        self.get_structure(structure).structure.get_inputs
+    }
+
     /// panics if you mess anything up lmao
     pub fn connect(&mut self, source: PortOut, destination: PortIn) {
-        let src = self.get_structure(source.structure_id);
-        let dst = self.get_structure(destination.structure_id);
-
-        let connection = DirectConnection {
-            src: src.pos + source.offset,
-            dst: dst.pos + destination.offset,
-        };
-
-        // WARNING: Port collision detection. O(n) time complexity.
-        // could instead use hashmaps for O(1) mapping of positions to building debug info.
-        // ideally with some sort of stack trace that traces a building's exact blueprint.
-        for old in &self.connections {
-            assert_ne!(
-                connection.src, old.src,
-                "Connection Source conflict:\n\
-                    - new src: {src:#?}\n\
-                    - new dst: {dst:#?}\n\
-                    - old: {old:#?}"
-            );
-            assert_ne!(
-                connection.dst, old.dst,
-                "Connection Destination conflict:\n\
-                    - new src: {src:#?}\n\
-                    - new dst: {dst:#?}\n\
-                    - old: {old:#?}"
-            );
-        }
-        self.connections.push(connection);
+        let src = self.get_structure_index(source.structure_id);
+        let dst = self.get_structure_index(destination.structure_id);
     }
 
     pub fn connect_all(&mut self, connections: impl IntoIterator<Item = (PortOut, PortIn)>) {
@@ -389,6 +349,21 @@ impl World {
         writeln!(
             f,
             r#"total="{structure_count}.000000"
+[Machine-Storage]
+13-cur="999.000000"
+12-cur="999.000000"
+11-cur="999.000000"
+10-cur="0.000000"
+9-cur="999.000000"
+8-cur="999.000000"
+7-cur="999.000000"
+6-cur="999.000000"
+5-cur="999.000000"
+4-cur="999.000000"
+3-cur="999.000000"
+2-cur="999.000000"
+1-cur="999.000000"
+0-cur="999.000000"
 [Machine-Type]
 0-cur-input="0.000000"
 1-cur-input="0.000000"
@@ -404,16 +379,6 @@ impl World {
 11-cur-input="0.000000"
 12-cur-input="0.000000"
 13-cur-input="0.000000"
-[Connections]"#
-        )?;
-
-        for (i, connection) in self.connections.iter().enumerate() {
-            connection.export(f, i)?;
-        }
-        let connection_count = self.connections.len();
-        writeln!(
-            f,
-            r#"total="{connection_count}.000000"
 [Research]
 0-name="Start Factory"
 0-researched="1.000000"

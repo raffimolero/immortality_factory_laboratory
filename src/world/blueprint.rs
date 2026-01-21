@@ -41,7 +41,7 @@ impl Entity for PortIn {
     fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
         Self {
             structure_id: self.structure_id._map_inside(pasted_world),
-            offset: self.offset,
+            index: self.index,
         }
     }
 }
@@ -54,7 +54,7 @@ impl Entity for PortOut {
     fn _map_inside(&self, pasted_world: &PastedWorld) -> Self {
         Self {
             structure_id: self.structure_id._map_inside(pasted_world),
-            offset: self.offset,
+            index: self.index,
         }
     }
 }
@@ -100,15 +100,6 @@ impl Placeable for &World {
             world.assert_no_structure_collision(&structure);
             world.structures.push(structure);
         }
-        // connections won't have collisions
-        // they can only connect to ports in their own world,
-        // which don't interact with the outside unless structures collide
-        world.connections.extend(
-            self.connections
-                .iter()
-                .copied()
-                .map(|connection| connection + offset),
-        );
         PastedWorld {
             blueprint_id: self.world_id,
             host_id: world.world_id,

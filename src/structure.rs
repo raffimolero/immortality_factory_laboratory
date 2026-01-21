@@ -1,69 +1,87 @@
 use crate::prelude::*;
 
+use std::fmt::{self, Display};
 use std::io::{self, Write};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ConnectorData {
-    pub inputs: &'static [Offset],
-    pub outputs: &'static [Offset],
+    pub port: Offset,
+    pub slot: Offset,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct IoData {
+    pub inputs: &'static [ConnectorData],
+    pub outputs: &'static [ConnectorData],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct PortOutData {
+    pub item: Item,
+    target: Option<PortIn>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct PortInData {
+    pub item: Item,
+    target: Option<PortOut>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum StructureData {
     AirPump {
-        output: Item,
+        outputs: [PortOutData; 1],
     },
     Refinery {
-        input: Item,
+        inputs: [PortInData; 1],
         storage: [Item; 12],
-        output: Item,
+        outputs: [PortOutData; 1],
     },
     Disharmonizer {
-        input: Item,
-        outputs: [Item; 4],
+        inputs: [PortInData; 1],
+        outputs: [PortOutData; 4],
     },
     Unifier {
-        inputs: [Item; 3],
-        output: Item,
+        inputs: [PortInData; 3],
+        outputs: [PortOutData; 1],
     },
     SubdimensionalMarket {
-        input: Item,
-        outputs: [Item; 3],
+        inputs: [PortInData; 1],
+        outputs: [PortOutData; 3],
     },
     Splitter {
-        input: Item,
-        outputs: [Item; 2],
+        inputs: [PortInData; 1],
+        outputs: [PortOutData; 2],
     },
     Merger {
-        inputs: [Item; 2],
-        output: Item,
+        inputs: [PortInData; 2],
+        outputs: [PortOutData; 1],
     },
     StorageVault {
-        input: Item,
+        inputs: [PortInData; 1],
         storage: [Item; 16],
-        output: Item,
+        outputs: [PortOutData; 1],
     },
     AbysalDoor {
-        input: Item,
+        inputs: [PortInData; 1],
     },
     SingleStorage {
-        // technically considered an output in the code
-        output: Item,
+        inputs: [PortInData; 1],
     },
     Laboratory {
-        input: Item,
+        inputs: [PortInData; 1],
     },
     RitualInfuser {
-        inputs: [Item; 3],
-        output: Item,
+        inputs: [PortInData; 3],
+        outputs: [PortOutData; 1],
     },
     BigMerger {
-        inputs: [Item; 5],
-        output: Item,
+        inputs: [PortInData; 5],
+        outputs: [PortOutData; 1],
     },
     BigSplitter {
-        input: Item,
-        outputs: [Item; 5],
+        inputs: [PortInData; 1],
+        outputs: [PortOutData; 5],
     },
 }
 
@@ -77,6 +95,44 @@ impl StructureData {
             Self::Refinery { storage, .. } => storage,
             Self::StorageVault { storage, .. } => storage,
             _ => &[],
+        }
+    }
+
+    pub fn get_inputs(&self) -> &[PortInData] {
+        use StructureData::*;
+        match self {
+            AirPump { .. } => &[],
+            Refinery { inputs, .. } => inputs,
+            Disharmonizer { inputs, .. } => inputs,
+            Unifier { inputs, .. } => inputs,
+            SubdimensionalMarket { inputs, .. } => inputs,
+            Splitter { inputs, .. } => inputs,
+            Merger { inputs, .. } => inputs,
+            StorageVault { inputs, .. } => inputs,
+            AbysalDoor { inputs, .. } => inputs,
+            SingleStorage { inputs } => inputs,
+            Laboratory { inputs, .. } => inputs,
+            RitualInfuser { inputs, .. } => inputs,
+            BigMerger { inputs, .. } => inputs,
+            BigSplitter { inputs, .. } => inputs,
+        }
+    }
+    pub fn get_outputs(&self) -> &[PortOutData] {
+        use StructureData::*;
+        match self {
+            AbysalDoor { .. } | SingleStorage { .. } | Laboratory { .. } | RitualInfuser { .. } => {
+                &[]
+            }
+            AirPump { outputs, .. } => outputs,
+            Refinery { outputs, .. } => outputs,
+            Disharmonizer { outputs, .. } => outputs,
+            Unifier { outputs, .. } => outputs,
+            SubdimensionalMarket { outputs, .. } => outputs,
+            Splitter { outputs, .. } => outputs,
+            Merger { outputs, .. } => outputs,
+            StorageVault { outputs, .. } => outputs,
+            BigMerger { outputs, .. } => outputs,
+            BigSplitter { outputs, .. } => outputs,
         }
     }
 
@@ -110,101 +166,119 @@ impl StructureData {
         }
         Ok(())
     }
+    //
+    // fn export_with(&self, f: &mut impl Write, id: usize, output_list: &[PortOutData], machine_type: &str, input_list: &[PortInData]) -> io::Result<()> {
+    //     writeln!(f, r#"{id}-struct="{{+output_list+:["#)?;
+    //     writeln!(f, r#"]+type+:0.0,+machine_type+:}}""}#)?;
+    //
+    // }
 
-    fn export_struct(&self, f: &mut impl Write, id: usize) -> io::Result<()> {
-        match *self {
-            Self::AirPump { output } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:1.0,+row+:1.0,+content_column+:1.0,+type+:1,+content_row+:0.0,+content+:{}.0}}],+type+:0.0,+machine_type+:{{+name+:+Air Pump+,+type+:0,+description+:+Sucks in potent air from the surrounding valley and puts it in a bottle.+,+sprite+:5,+machine_cost+:{{+cost_type_list+:[8,0,0,1,1,2,2,5,15,16,16,16,7,7,7,7,7,7,20,20,20,21,21,21,21,21,21],+cost_amount_list+:[3.0,2.0,4.0,4.0,4.0,4.0,3.0,4.0,5.0,3.0,3.0,3.0,4.0,4.0,3.0,3.0,2.0,2.0,3.0,3.0,2.0,3.0,3.0,2.0,2.0,1.0,1.0]}},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:8.0}},+input_list+:[]}}""#,
-                output as i8,
+    fn export_struct(&self, f: &mut impl Write, id: usize, world: &World) -> io::Result<()> {
+        let machine_type = match *self {
+            Self::AirPump { .. } => {
+                "+type+:0.0,+machine_type+:{+name+:+Air Pump+,+type+:0,+description+:+Sucks in potent air from the surrounding valley and puts it in a bottle.+,+sprite+:5,+machine_cost+:{+cost_type_list+:[8,0,0,1,1,2,2,5,15,16,16,16,7,7,7,7,7,7,20,20,20,21,21,21,21,21,21],+cost_amount_list+:[3.0,2.0,4.0,4.0,4.0,4.0,3.0,4.0,5.0,3.0,3.0,3.0,4.0,4.0,3.0,3.0,2.0,2.0,3.0,3.0,2.0,3.0,3.0,2.0,2.0,1.0,1.0]},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:8.0},"
+            }
+            Self::Refinery { .. } => {
+                "+type+:1.0,+machine_type+:{+name+:+Refinery+,+type+:1,+description+:+Improves a resource, turning it into something better.+,+sprite+:35,+machine_cost+:{+cost_type_list+:[0,1,1,1,1,3,3,3,3,3,3,3,15,15,15,15,16,16,16],+cost_amount_list+:[3.0,2.0,2.0,2.0,2.0,4.0,3.0,3.0,2.0,2.0,2.0,2.0,3.0,3.0,2.0,2.0,2.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:16.0}"
+            }
+            Self::Disharmonizer { .. } => {
+                "+type+:2.0,+machine_type+:{+name+:+Disharmonizer+,+type+:2,+description+:+Breaks resources apart by nature and magical sequence.+,+sprite+:37,+machine_cost+:{+cost_type_list+:[1,5,5,15,17,17,17,17,17,17,17,17,18,18,18,18,18,18,20,20,20,20,20,21,21,21,21],+cost_amount_list+:[3.0,4.0,2.0,4.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,2.0,2.0,4.0,3.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:16.0},"
+            }
+            Self::Unifier { .. } => {
+                "+type+:3.0,+machine_type+:{+name+:+Unifier+,+type+:3,+description+:+Converges multiple resources into one.+,+sprite+:61,+machine_cost+:{+cost_type_list+:[2,15,15,15,15,15,7,7,7,16,16,16,16],+cost_amount_list+:[4.0,4.0,3.0,2.0,2.0,2.0,3.0,3.0,2.0,4.0,3.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:16.0},"
+            }
+            Self::SubdimensionalMarket { .. } => {
+                "+type+:4.0,+machine_type+:{+name+:+Subdimensional Market+,+type+:4.0,+description+:+Sell any resource for coin. Some are more worth than others.+,+sprite+:52.0,+machine_cost+:{+cost_type_list+:[10.0,11.0,11.0,8.0,8.0,21.0],+cost_amount_list+:[4.0,4.0,3.0,4.0,3.0,2.0]},+cost_input+:0.0,+speed_increase+:4.0,+unlocked+:1.0,+machine_speed+:8.0},"
+            }
+            Self::Splitter { .. } => {
+                "+type+:5.0,+machine_type+:{+name+:+Splitter+,+type+:5.0,+description+:+Split an incomming connection into two outputs.+,+sprite+:24.0,+machine_cost+:{+cost_type_list+:[1.0,1.0,5.0,5.0,5.0,5.0,5.0],+cost_amount_list+:[3.0,3.0,3.0,3.0,2.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0},"
+            }
+            Self::Merger { .. } => {
+                "+type+:6.0,+machine_type+:{+name+:+Merger+,+type+:6.0,+description+:+Merges two incomming connections into one output.+,+sprite+:25.0,+machine_cost+:{+cost_type_list+:[1.0,1.0,1.0,1.0,4.0,4.0,5.0,5.0,5.0,5.0,5.0],+cost_amount_list+:[3.0,3.0,2.0,2.0,3.0,2.0,3.0,3.0,2.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0},"
+            }
+            Self::StorageVault { .. } => {
+                "+type+:7.0,+machine_type+:{+name+:+Storage Vault+,+type+:7.0,+description+:+A machine which keeps your resources safe behind thick glass.+,+sprite+:6.0,+machine_cost+:{+cost_type_list+:[4.0,5.0,5.0,5.0,5.0,5.0],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0},"
+            }
+            Self::AbysalDoor { .. } => {
+                "+type+:8.0,+machine_type+:{+name+:+Abysal Door+,+type+:8.0,+description+:+Get rid of all you don't have a need for.+,+sprite+:3.0,+machine_cost+:{+cost_type_list+:[2.0,2.0,2.0,2.0,2.0],+cost_amount_list+:[4.0,3.0,3.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:4.0,+unlocked+:1.0,+machine_speed+:2.0},"
+            }
+            Self::SingleStorage { .. } => {
+                "+type+:9.0,+machine_type+:{+name+:+Single Storage+,+type+:9.0,+description+:+A single storage place for a single resource.+,+sprite+:17.0,+machine_cost+:{+cost_type_list+:[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,5.0,5.0,5.0],+cost_amount_list+:[2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,2.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0},"
+            }
+            Self::Laboratory { .. } => {
+                "+type+:10.0,+machine_type+:{+name+:+Laboratory+,+type+:10.0,+description+:+Used to research more stuff.+,+sprite+:45.0,+machine_cost+:{+cost_type_list+:[8.0],+cost_amount_list+:[100.0]},+cost_input+:10.0,+speed_increase+:32.0,+unlocked+:0.0,+machine_speed+:4.0},"
+            }
+            Self::RitualInfuser { .. } => {
+                "+type+:11.0,+machine_type+:{+name+:+Ritual Infuser+,+type+:11.0,+description+:+Automate magical rituals. Used to create the phylactery.+,+sprite+:44.0,+machine_cost+:{+cost_type_list+:[21.0,25.0,25.0,25.0,25.0],+cost_amount_list+:[8.0,2.0,2.0,1.0,1.0]},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:1.0},"
+            }
+            Self::BigMerger { .. } => {
+                "+type+:12,+machine_type+:{+name+:+Big Merger+,+type+:12,+description+:+Merges Inputs. Lowest always first.+,+sprite+:53,+machine_cost+:{+cost_type_list+:[5,5,5,5,5,5,5],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:true,+machine_speed+:-10},"
+            }
+            Self::BigSplitter { .. } => {
+                "+type+:13,+machine_type+:{+name+:+Big Splitter+,+type+:13,+description+:+Splits Outputs. Lowest always first.+,+sprite+:22,+machine_cost+:{+cost_type_list+:[5,5,5,5,5,5,5],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,2.0,1.0]},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:true,+machine_speed+:-10},"
+            }
+        };
+        write!(f, r#"{id}-struct="{{+output_list+:["#)?;
+        for (
+            i,
+            (
+                ConnectorData {
+                    port: Offset { x: px, y: py },
+                    slot: Offset { x: sx, y: sy },
+                },
+                PortOutData { item, target },
             ),
-            Self::Refinery {
-                input,
-                storage: _,
-                output,
-            } => writeln!(
+        ) in self
+            .kind()
+            .connectors()
+            .outputs
+            .iter()
+            .zip(self.get_outputs())
+            .enumerate()
+        {
+            let item_id = *item as i8;
+            let (target_port, target_id, target_x, target_y) =
+                target.map_or((-1, -1, -1, -1), |port| {
+                    let i = port.structure_id.index;
+                    let (tx, ty) = world.structures[i].pos.world_coords();
+                    (port.index as i8, i as i32 + 100000, tx, ty)
+                });
+            write!(
                 f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:5.0,+row+:0.0,+content_column+:5.0,+type+:1,+content_row+:1.0,+content+:{}.0}}],+type+:1.0,+machine_type+:{{+name+:+Refinery+,+type+:1,+description+:+Improves a resource, turning it into something better.+,+sprite+:35,+machine_cost+:{{+cost_type_list+:[0,1,1,1,1,3,3,3,3,3,3,3,15,15,15,15,16,16,16],+cost_amount_list+:[3.0,2.0,2.0,2.0,2.0,4.0,3.0,3.0,2.0,2.0,2.0,2.0,3.0,3.0,2.0,2.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:16.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:0.0,+type+:0,+content_row+:1.0,+content+:{}.0}}]}}""#,
-                output as i8, input as i8,
-            ),
-            Self::Disharmonizer { input, outputs } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:3.0,+row+:0.0,+content_column+:2.0,+type+:1,+content_row+:0.0,+content+:{}.0}},{{+index+:1.0,+column+:3.0,+row+:1.0,+content_column+:2.0,+type+:1,+content_row+:1.0,+content+:{}.0}},{{+index+:2.0,+column+:3.0,+row+:2.0,+content_column+:2.0,+type+:1,+content_row+:2.0,+content+:{}.0}},{{+index+:3.0,+column+:3.0,+row+:3.0,+content_column+:2.0,+type+:1,+content_row+:3.0,+content+:{}.0}}],+type+:2.0,+machine_type+:{{+name+:+Disharmonizer+,+type+:2,+description+:+Breaks resources apart by nature and magical sequence.+,+sprite+:37,+machine_cost+:{{+cost_type_list+:[1,5,5,15,17,17,17,17,17,17,17,17,18,18,18,18,18,18,20,20,20,20,20,21,21,21,21],+cost_amount_list+:[3.0,4.0,2.0,4.0,3.0,3.0,2.0,2.0,2.0,2.0,2.0,2.0,3.0,3.0,2.0,2.0,2.0,2.0,3.0,3.0,3.0,2.0,2.0,4.0,3.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:16.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:3.0,+content_column+:0.0,+type+:0,+content_row+:2.0,+content+:{}.0}}]}}""#,
-                outputs[0] as i8, outputs[1] as i8, outputs[2] as i8, outputs[3] as i8, input as i8,
-            ),
-            Self::Unifier { inputs, output } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:1.0,+row+:0.0,+content_column+:1.0,+type+:1,+content_row+:1.0,+content+:{}.0}}],+type+:3.0,+machine_type+:{{+name+:+Unifier+,+type+:3,+description+:+Converges multiple resources into one.+,+sprite+:61,+machine_cost+:{{+cost_type_list+:[2,15,15,15,15,15,7,7,7,16,16,16,16],+cost_amount_list+:[4.0,4.0,3.0,2.0,2.0,2.0,3.0,3.0,2.0,4.0,3.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:8.0,+unlocked+:true,+machine_speed+:16.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:4.0,+content_column+:0.0,+type+:0,+content_row+:3.0,+content+:{}.0}},{{+index+:1.0,+column+:1.0,+row+:4.0,+content_column+:1.0,+type+:0,+content_row+:3.0,+content+:{}.0}},{{+index+:2.0,+column+:2.0,+row+:4.0,+content_column+:2.0,+type+:0,+content_row+:3.0,+content+:{}.0}}]}}""#,
-                output as i8, inputs[0] as i8, inputs[1] as i8, inputs[2] as i8,
-            ),
-            Self::SubdimensionalMarket { input, outputs } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:3.0,+row+:0.0,+content_column+:2.0,+type+:1.0,+content_row+:0.0,+content+:{}.0}},{{+index+:1.0,+column+:3.0,+row+:1.0,+content_column+:2.0,+type+:1.0,+content_row+:1.0,+content+:{}}},{{+index+:2.0,+column+:3.0,+row+:2.0,+content_column+:2.0,+type+:1.0,+content_row+:2.0,+content+:{}}}],+type+:4.0,+machine_type+:{{+name+:+Subdimensional Market+,+type+:4.0,+description+:+Sell any resource for coin. Some are more worth than others.+,+sprite+:52.0,+machine_cost+:{{+cost_type_list+:[10.0,11.0,11.0,8.0,8.0,21.0],+cost_amount_list+:[4.0,4.0,3.0,4.0,3.0,2.0]}},+cost_input+:0.0,+speed_increase+:4.0,+unlocked+:1.0,+machine_speed+:8.0}},+input_list+:[{{+index+:0.0,+column+:3.0,+row+:4.0,+content_column+:2.0,+type+:0.0,+content_row+:4.0,+content+:{}.0}}]}}""#,
-                outputs[0] as i8, outputs[1] as i8, outputs[2] as i8, input as i8,
-            ),
-            Self::Splitter { input, outputs } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:1.0,+content_row+:-1.0,+content+:{}.0}},{{+index+:1.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:1.0,+content_row+:-1.0,+content+:{}.0}}],+type+:5.0,+machine_type+:{{+name+:+Splitter+,+type+:5.0,+description+:+Split an incomming connection into two outputs.+,+sprite+:24.0,+machine_cost+:{{+cost_type_list+:[1.0,1.0,5.0,5.0,5.0,5.0,5.0],+cost_amount_list+:[3.0,3.0,3.0,3.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:0.0,+content_row+:-1.0,+content+:{}.0}}]}}""#,
-                outputs[0] as i8, outputs[1] as i8, input as i8,
-            ),
-            Self::Merger { inputs, output } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:1.0,+content_row+:-1.0,+content+:{}.0}}],+type+:6.0,+machine_type+:{{+name+:+Merger+,+type+:6.0,+description+:+Merges two incomming connections into one output.+,+sprite+:25.0,+machine_cost+:{{+cost_type_list+:[1.0,1.0,1.0,1.0,4.0,4.0,5.0,5.0,5.0,5.0,5.0],+cost_amount_list+:[3.0,3.0,2.0,2.0,3.0,2.0,3.0,3.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:0.0,+content_row+:-1.0,+content+:{}.0}},{{+index+:1.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:0.0,+content_row+:-1.0,+content+:{}.0}}]}}""#,
-                output as i8, inputs[0] as i8, inputs[1] as i8,
-            ),
-            Self::StorageVault {
-                input,
-                storage: _,
-                output,
-            } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:4.0,+row+:1.0,+content_column+:4.0,+type+:1.0,+content_row+:0.0,+content+:{}.0}}],+type+:7.0,+machine_type+:{{+name+:+Storage Vault+,+type+:7.0,+description+:+A machine which keeps your resources safe behind thick glass.+,+sprite+:6.0,+machine_cost+:{{+cost_type_list+:[4.0,5.0,5.0,5.0,5.0,5.0],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:1.0,+content_column+:0.0,+type+:0.0,+content_row+:0.0,+content+:{}.0}}]}}""#,
-                output as i8, input as i8,
-            ),
-            Self::AbysalDoor { input } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[],+type+:8.0,+machine_type+:{{+name+:+Abysal Door+,+type+:8.0,+description+:+Get rid of all you don't have a need for.+,+sprite+:3.0,+machine_cost+:{{+cost_type_list+:[2.0,2.0,2.0,2.0,2.0],+cost_amount_list+:[4.0,3.0,3.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:4.0,+unlocked+:1.0,+machine_speed+:2.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:1.0,+type+:0.0,+content_row+:0.0,+content+:{}.0}}]}}""#,
-                input as i8,
-            ),
-            Self::SingleStorage {
-                // technically considered an output in the code
-                output,
-            } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[],+type+:9.0,+machine_type+:{{+name+:+Single Storage+,+type+:9.0,+description+:+A single storage place for a single resource.+,+sprite+:17.0,+machine_cost+:{{+cost_type_list+:[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.0,5.0,5.0,5.0],+cost_amount_list+:[2.0,2.0,2.0,2.0,2.0,2.0,2.0,2.0,1.0,1.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:-1.0}},+input_list+:[{{+index+:0.0,+column+:-1.0,+row+:-1.0,+content_column+:0.0,+type+:0.0,+content_row+:0.0,+content+:{}.0}}]}}""#,
-                output as i8,
-            ),
-            Self::Laboratory { input } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[],+type+:10.0,+machine_type+:{{+name+:+Laboratory+,+type+:10.0,+description+:+Used to research more stuff.+,+sprite+:45.0,+machine_cost+:{{+cost_type_list+:[8.0],+cost_amount_list+:[100.0]}},+cost_input+:10.0,+speed_increase+:32.0,+unlocked+:0.0,+machine_speed+:4.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:1.0,+content_column+:0.0,+type+:0.0,+content_row+:0.0,+content+:{}.0}}]}}""#,
-                input as i8
-            ),
-            Self::RitualInfuser { inputs, output } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:-1.0,+row+:-1.0,+content_column+:2.0,+type+:1.0,+content_row+:3.0,+content+:{}.0}}],+type+:11.0,+machine_type+:{{+name+:+Ritual Infuser+,+type+:11.0,+description+:+Automate magical rituals. Used to create the phylactery.+,+sprite+:44.0,+machine_cost+:{{+cost_type_list+:[21.0,25.0,25.0,25.0,25.0],+cost_amount_list+:[8.0,2.0,2.0,1.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:1.0,+machine_speed+:1.0}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:1.0,+content_column+:1.0,+type+:0.0,+content_row+:1.0,+content+:{}.0}},{{+index+:1.0,+column+:2.0,+row+:0.0,+content_column+:2.0,+type+:0.0,+content_row+:1.0,+content+:{}.0}},{{+index+:2.0,+column+:4.0,+row+:1.0,+content_column+:3.0,+type+:0.0,+content_row+:1.0,+content+:{}.0}}]}}""#,
-                output as i8, inputs[0] as i8, inputs[1] as i8, inputs[2] as i8,
-            ),
-            Self::BigMerger { inputs, output } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:5.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:{}.0}}],+type+:12,+machine_type+:{{+name+:+Big Merger+,+type+:12,+description+:+Merges Inputs. Lowest always first.+,+sprite+:53,+machine_cost+:{{+cost_type_list+:[5,5,5,5,5,5,5],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:true,+machine_speed+:-10}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:{}.0}},{{+index+:1.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:{}.0}},{{+index+:2.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:{}.0}},{{+index+:3.0,+column+:0.0,+row+:3.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:{}.0}},{{+index+:4.0,+column+:0.0,+row+:4.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:{}.0}}]}}""#,
-                output as i8,
-                inputs[0] as i8,
-                inputs[1] as i8,
-                inputs[2] as i8,
-                inputs[3] as i8,
-                inputs[4] as i8,
-            ),
-            Self::BigSplitter { input, outputs } => writeln!(
-                f,
-                r#"{id}-struct="{{+output_list+:[{{+index+:0.0,+column+:0.0,+row+:0.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:{}.0}},{{+index+:1.0,+column+:0.0,+row+:1.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:{}.0}},{{+index+:2.0,+column+:0.0,+row+:2.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:{}.0}},{{+index+:3.0,+column+:0.0,+row+:3.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:{}.0}},{{+index+:4.0,+column+:0.0,+row+:4.0,+content_column+:-1.0,+type+:1,+content_row+:-1.0,+content+:{}.0}}],+type+:13,+machine_type+:{{+name+:+Big Splitter+,+type+:13,+description+:+Splits Outputs. Lowest always first.+,+sprite+:22,+machine_cost+:{{+cost_type_list+:[5,5,5,5,5,5,5],+cost_amount_list+:[3.0,3.0,3.0,2.0,2.0,2.0,1.0]}},+cost_input+:0.0,+speed_increase+:1.0,+unlocked+:true,+machine_speed+:-10}},+input_list+:[{{+index+:0.0,+column+:0.0,+row+:5.0,+content_column+:-1.0,+type+:0,+content_row+:-1.0,+content+:{}.0}}]}}""#,
-                outputs[0] as i8,
-                outputs[1] as i8,
-                outputs[2] as i8,
-                outputs[3] as i8,
-                outputs[4] as i8,
-                input as i8,
-            ),
+                r#"{{+index+:{i}.0,+column+:{px}.0,+row+:{py}.0,+content_column+:{sx}.0,+type+:1,+content_row+:{sy}.0,+content+:{item_id}.0,+connected_machine+:{target_id},+connected_machine_slot_index+:{target_port}.0,+connected_machine_x+:{target_x}.0,+connected_machine_y+:{target_y}.0}}"#
+            )?;
         }
+        write!(f, "{machine_type}")?;
+        for (
+            i,
+            (
+                ConnectorData {
+                    port: Offset { x: px, y: py },
+                    slot: Offset { x: sx, y: sy },
+                },
+                PortInData { item, target },
+            ),
+        ) in self
+            .kind()
+            .connectors()
+            .inputs
+            .iter()
+            .zip(self.get_inputs())
+            .enumerate()
+        {
+            let item_id = *item as i8;
+            let (target_port, target_id, target_x, target_y) =
+                target.map_or((-1, -1, -1, -1), |port| {
+                    let i = port.structure_id.index;
+                    let (tx, ty) = world.structures[i].pos.world_coords();
+                    (port.index as i8, i as i32 + 100000, tx, ty)
+                });
+            write!(
+                f,
+                r#"{{+index+:{i}.0,+column+:{px}.0,+row+:{py}.0,+content_column+:{sx}.0,+type+:0,+content_row+:{sy}.0,+content+:{item_id}.0,+connected_machine+:{target_id},+connected_machine_slot_index+:{target_port}.0,+connected_machine_x+:{target_x}.0,+connected_machine_y+:{target_y}.0}}"#
+            )?;
+        }
+        writeln!(f, r#"]}}""#)
     }
 }
 
@@ -247,17 +321,17 @@ impl StructureKind {
         }
     }
 
-    pub fn connectors(&self) -> ConnectorData {
+    pub fn connectors(&self) -> IoData {
         match self {
-            Self::AirPump => ConnectorData {
+            Self::AirPump => IoData {
                 inputs: &[],
                 outputs: &[Offset { x: 1, y: 1 }],
             },
-            Self::Refinery => ConnectorData {
+            Self::Refinery => IoData {
                 inputs: &[Offset { x: 0, y: 0 }],
                 outputs: &[Offset { x: 5, y: 0 }],
             },
-            Self::Disharmonizer => ConnectorData {
+            Self::Disharmonizer => IoData {
                 inputs: &[Offset { x: 0, y: 3 }],
                 outputs: &[
                     Offset { x: 3, y: 0 },
@@ -266,7 +340,7 @@ impl StructureKind {
                     Offset { x: 3, y: 3 },
                 ],
             },
-            Self::Unifier => ConnectorData {
+            Self::Unifier => IoData {
                 inputs: &[
                     Offset { x: 0, y: 4 },
                     Offset { x: 1, y: 4 },
@@ -274,7 +348,7 @@ impl StructureKind {
                 ],
                 outputs: &[Offset { x: 1, y: 0 }],
             },
-            Self::SubdimensionalMarket => ConnectorData {
+            Self::SubdimensionalMarket => IoData {
                 inputs: &[Offset { x: 3, y: 4 }],
                 outputs: &[
                     Offset { x: 3, y: 0 },
@@ -282,31 +356,31 @@ impl StructureKind {
                     Offset { x: 3, y: 2 },
                 ],
             },
-            Self::Splitter => ConnectorData {
+            Self::Splitter => IoData {
                 inputs: &[Offset { x: 0, y: 1 }],
                 outputs: &[Offset { x: 0, y: 0 }, Offset { x: 0, y: 2 }],
             },
-            Self::Merger => ConnectorData {
+            Self::Merger => IoData {
                 inputs: &[Offset { x: 0, y: 0 }, Offset { x: 0, y: 2 }],
                 outputs: &[Offset { x: 0, y: 1 }],
             },
-            Self::StorageVault => ConnectorData {
+            Self::StorageVault => IoData {
                 inputs: &[Offset { x: 0, y: 1 }],
                 outputs: &[Offset { x: 4, y: 1 }],
             },
-            Self::AbysalDoor => ConnectorData {
+            Self::AbysalDoor => IoData {
                 inputs: &[Offset { x: 0, y: 0 }],
                 outputs: &[],
             },
-            Self::SingleStorage => ConnectorData {
+            Self::SingleStorage => IoData {
                 inputs: &[],
                 outputs: &[Offset::NULL],
             },
-            Self::Laboratory => ConnectorData {
+            Self::Laboratory => IoData {
                 inputs: &[Offset { x: 0, y: 1 }],
                 outputs: &[],
             },
-            Self::RitualInfuser => ConnectorData {
+            Self::RitualInfuser => IoData {
                 inputs: &[
                     Offset { x: 0, y: 1 },
                     Offset { x: 2, y: 0 },
@@ -314,7 +388,7 @@ impl StructureKind {
                 ],
                 outputs: &[Offset::NULL],
             },
-            Self::BigMerger => ConnectorData {
+            Self::BigMerger => IoData {
                 inputs: &[
                     Offset { x: 0, y: 0 },
                     Offset { x: 0, y: 1 },
@@ -324,7 +398,7 @@ impl StructureKind {
                 ],
                 outputs: &[Offset { x: 0, y: 5 }],
             },
-            Self::BigSplitter => ConnectorData {
+            Self::BigSplitter => IoData {
                 inputs: &[Offset { x: 0, y: 5 }],
                 outputs: &[
                     Offset { x: 0, y: 0 },
@@ -361,53 +435,60 @@ impl From<&StructureData> for StructureKind {
 
 impl From<StructureKind> for StructureData {
     fn from(value: StructureKind) -> Self {
-        use Item::Empty;
         match value {
-            StructureKind::AirPump => Self::AirPump { output: Empty },
+            StructureKind::AirPump => Self::AirPump {
+                outputs: Default::default(),
+            },
             StructureKind::Refinery => Self::Refinery {
-                input: Empty,
-                storage: [Empty; 12],
-                output: Empty,
+                inputs: Default::default(),
+                storage: Default::default(),
+                outputs: Default::default(),
             },
             StructureKind::Disharmonizer => Self::Disharmonizer {
-                input: Empty,
-                outputs: [Empty; 4],
+                inputs: Default::default(),
+                outputs: Default::default(),
             },
             StructureKind::Unifier => Self::Unifier {
-                inputs: [Empty; 3],
-                output: Empty,
+                inputs: Default::default(),
+                outputs: Default::default(),
             },
             StructureKind::SubdimensionalMarket => Self::SubdimensionalMarket {
-                input: Empty,
-                outputs: [Empty; 3],
+                inputs: Default::default(),
+                outputs: Default::default(),
             },
             StructureKind::Splitter => Self::Splitter {
-                input: Empty,
-                outputs: [Empty; 2],
+                inputs: Default::default(),
+                outputs: Default::default(),
             },
             StructureKind::Merger => Self::Merger {
-                inputs: [Empty; 2],
-                output: Empty,
+                inputs: Default::default(),
+                outputs: Default::default(),
             },
             StructureKind::StorageVault => Self::StorageVault {
-                input: Empty,
-                storage: [Empty; 16],
-                output: Empty,
+                inputs: Default::default(),
+                storage: Default::default(),
+                outputs: Default::default(),
             },
-            StructureKind::AbysalDoor => Self::AbysalDoor { input: Empty },
-            StructureKind::SingleStorage => Self::SingleStorage { output: Empty },
-            StructureKind::Laboratory => Self::Laboratory { input: Empty },
+            StructureKind::AbysalDoor => Self::AbysalDoor {
+                inputs: Default::default(),
+            },
+            StructureKind::SingleStorage => Self::SingleStorage {
+                inputs: Default::default(),
+            },
+            StructureKind::Laboratory => Self::Laboratory {
+                inputs: Default::default(),
+            },
             StructureKind::RitualInfuser => Self::RitualInfuser {
-                inputs: [Empty; 3],
-                output: Empty,
+                inputs: Default::default(),
+                outputs: Default::default(),
             },
             StructureKind::BigMerger => Self::BigMerger {
-                inputs: [Empty; 5],
-                output: Empty,
+                inputs: Default::default(),
+                outputs: Default::default(),
             },
             StructureKind::BigSplitter => Self::BigSplitter {
-                input: Empty,
-                outputs: [Empty; 5],
+                inputs: Default::default(),
+                outputs: Default::default(),
             },
         }
     }
