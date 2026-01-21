@@ -362,6 +362,7 @@ impl StructureDataFull {
         let obj_num = self.kind().object_number();
 
         write!(f, r#"{id}-struct="{{+output_list+:["#)?;
+        let mut comma = false;
         for (
             i,
             (
@@ -381,17 +382,22 @@ impl StructureDataFull {
         {
             let item_id = *item as i8;
             let (target_port, target_id, target_x, target_y) =
-                target.map_or((-1, -1, -1, -1), |port| {
+                target.map_or((-1, -1, 0, 0), |port| {
                     let i = port.structure_index;
                     let (tx, ty) = world.structures[i].pos.world_coords();
                     (port.port as i8, i as i32 + 100000, tx, ty)
                 });
+            if comma {
+                write!(f, ",")?;
+            }
+            comma = true;
             write!(
                 f,
                 r#"{{+index+:{i}.0,+column+:{px}.0,+row+:{py}.0,+content_column+:{sx}.0,+type+:1,+content_row+:{sy}.0,+content+:{item_id}.0,+connected_machine+:{target_id},+connected_machine_slot_index+:{target_port}.0,+connected_machine_x+:{target_x}.0,+connected_machine_y+:{target_y}.0}}"#
             )?;
         }
         write!(f, "],{},+input_list+:[", self.machine_type())?;
+        let mut comma = false;
         for (
             i,
             (
@@ -411,11 +417,15 @@ impl StructureDataFull {
         {
             let item_id = *item as i8;
             let (target_port, target_id, target_x, target_y) =
-                target.map_or((-1, -1, -1, -1), |port| {
+                target.map_or((-1, -1, 0, 0), |port| {
                     let i = port.structure_index;
                     let (tx, ty) = world.structures[i].pos.world_coords();
                     (port.port as i8, i as i32 + 100000, tx, ty)
                 });
+            if comma {
+                write!(f, ",")?;
+            }
+            comma = true;
             write!(
                 f,
                 r#"{{+index+:{i}.0,+column+:{px}.0,+row+:{py}.0,+content_column+:{sx}.0,+type+:0,+content_row+:{sy}.0,+content+:{item_id}.0,+connected_machine+:{target_id},+connected_machine_slot_index+:{target_port}.0,+connected_machine_x+:{target_x}.0,+connected_machine_y+:{target_y}.0}}"#
